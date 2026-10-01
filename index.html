@@ -1,0 +1,3338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#0c2d4a">
+<title>LifeLink v7.2 — Emergency System + Insurance</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; -webkit-tap-highlight-color:transparent; }
+  :root {
+    --red: #0c2d4a; --dark-red: #081f33; --blue: #0c2d4a;
+    --green: #1a8a7d; --green-dark: #14695f; --orange: #2980b9;
+    --yellow: #e8f4fd; --purple: #0c2d4a; --teal: #1a8a7d;
+    --bg: linear-gradient(180deg, #e8f0fc 0%, #f5f8fc 40%, #ffffff 100%);
+    --card-bg: #ffffff; --text: #0c2d4a; --text-light: #5a7a95;
+    --border: #d4e3f0; --input-bg: #f0f5fa;
+    --shadow: 0 4px 20px rgba(12,45,74,0.08);
+    --shadow-lg: 0 10px 40px rgba(12,45,74,0.12);
+  }
+  body.dark {
+    --bg: linear-gradient(180deg, #06131f 0%, #0a1e30 50%, #0c2640 100%);
+    --card-bg: #0d1f30; --text: #e0eaf3; --text-light: #8ba8c4;
+    --border: #1a3550; --input-bg: #112840; --blue: #4a9eff;
+    --shadow: 0 4px 20px rgba(0,0,0,0.4);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  body {
+    background: var(--bg); background-attachment: fixed;
+    min-height: 100vh; padding: 16px; color: var(--text);
+    transition: background 0.4s ease, color 0.4s ease;
+    overflow-x: hidden;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+
+  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; color:var(--text); flex-wrap:wrap; gap:10px; }
+  .lang-toggle, .theme-toggle, .role-toggle, .install-btn {
+    background: var(--card-bg); border: 2px solid var(--border);
+    color: var(--text); padding: 8px 16px; border-radius: 30px; cursor: pointer;
+    font-weight: 600; font-size: 0.85rem; backdrop-filter: blur(10px);
+    transition: all 0.3s;
+  }
+  .lang-toggle { background: var(--card-bg); font-weight: 700; }
+  .role-toggle { background: linear-gradient(135deg, #0c2d4a, #143d5e); border-color: #0c2d4a; color: white; }
+  .install-btn { background: linear-gradient(135deg, var(--green), var(--green-dark)); color: white; display: none; }
+  .install-btn.show { display: inline-block; }
+  .lang-toggle:hover, .theme-toggle:hover, .role-toggle:hover, .install-btn:hover { transform: scale(1.05); }
+  .topbar-right { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  .lang-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 3000;
+    backdrop-filter: blur(6px); padding: 20px;
+  }
+  .lang-modal.show { display: flex; animation: fadeIn 0.3s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .lang-box {
+    background: var(--card-bg); border-radius: 20px; padding: 26px;
+    max-width: 520px; width: 100%; box-shadow: var(--shadow-lg);
+    animation: slideUp 0.4s; max-height: 90vh; overflow-y: auto;
+  }
+  .lang-box h3 { color: var(--blue); margin-bottom: 6px; font-size: 1.2rem; text-align: center; }
+  .lang-box p { color: var(--text-light); font-size: 0.82rem; text-align: center; margin-bottom: 18px; }
+  .lang-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .lang-option {
+    padding: 14px 12px; border-radius: 12px; border: 2px solid var(--border);
+    background: var(--input-bg); cursor: pointer; text-align: center;
+    transition: all 0.2s; font-weight: 700; color: var(--text);
+  }
+  .lang-option:hover { border-color: var(--red); transform: translateY(-2px); }
+  .lang-option.active { background: linear-gradient(135deg, var(--red), var(--dark-red)); color: white; border-color: var(--red); }
+  .lang-option .flag { font-size: 1.8rem; display: block; margin-bottom: 4px; }
+  .lang-option .name { font-size: 0.9rem; }
+  .lang-option .native { font-size: 0.72rem; opacity: 0.75; margin-top: 2px; }
+
+  header {
+    text-align:left; color:var(--text); margin-bottom:20px; padding: 60px 40px;
+    position: relative; overflow: hidden; min-height: 320px;
+    background: linear-gradient(135deg, #e8f0fc 0%, #dce8f7 50%, rgba(220,232,247,0.3) 100%);
+    border-radius: 24px; display: flex; flex-direction: column; justify-content: center;
+  }
+  header::before {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0;
+    width: 55%; 
+    background-image: url('https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800&q=80');
+    background-size: cover; background-position: center top;
+    mask-image: linear-gradient(to left, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+    -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+    z-index: 0;
+  }
+  header::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, #e8f0fc 25%, transparent 65%);
+    z-index: 1; pointer-events: none;
+  }
+  header h1 {
+    font-size: clamp(2.2rem, 6vw, 3.5rem); font-weight:900; letter-spacing:-1.5px;
+    margin-bottom:10px; position: relative; z-index: 2; max-width: 55%;
+  }
+  header h1 span { color: var(--teal); }
+  header p {
+    font-size: clamp(0.85rem, 2vw, 1.05rem); opacity:0.85;
+    position: relative; z-index: 2; max-width: 50%; line-height: 1.6;
+  }
+  body.dark header {
+    background: linear-gradient(135deg, #0a1e30 0%, #0c2640 50%, rgba(12,38,64,0.3) 100%);
+  }
+  body.dark header::after {
+    background: linear-gradient(90deg, #0a1e30 25%, transparent 65%);
+  }
+  @media (max-width: 768px) {
+    header { min-height: 220px; padding: 30px 20px; text-align: center; }
+    header::before { width: 100%; opacity: 0.25; mask-image: none; -webkit-mask-image: none; }
+    header::after { background: rgba(232,240,252,0.75); }
+    body.dark header::after { background: rgba(10,30,48,0.8); }
+    header h1, header p { max-width: 100%; }
+  }
+
+  .sos-btn {
+    position: fixed; bottom: 20px; right: 20px; width: 68px; height: 68px;
+    border-radius: 50%; background: linear-gradient(135deg, #c0392b, #96281b);
+    color: white; border: 4px solid white; font-size: 0.75rem; font-weight: 900;
+    cursor: pointer; box-shadow: 0 8px 30px rgba(192,57,43,0.6); z-index: 999;
+    animation: sosPulse 2s infinite; display: flex; align-items: center;
+    justify-content: center; flex-direction: column; line-height: 1;
+  }
+  .sos-btn span:first-child { font-size: 1.3rem; margin-bottom: 2px; }
+  @keyframes sosPulse {
+    0%, 100% { box-shadow: 0 8px 30px rgba(192,57,43,0.6); transform: scale(1); }
+    50% { box-shadow: 0 8px 50px rgba(192,57,43,0.9); transform: scale(1.06); }
+  }
+
+  .tabs {
+    display: flex; gap: 6px; margin-bottom: 20px; background: var(--card-bg);
+    padding: 6px; border-radius: 16px; box-shadow: var(--shadow);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 1; min-width: 110px; padding: 12px 8px; text-align: center;
+    border-radius: 10px; cursor: pointer; font-weight: 700; color: var(--text-light);
+    transition: all 0.2s; font-size: clamp(0.7rem, 1.8vw, 0.82rem);
+    white-space: nowrap; user-select: none;
+  }
+  .tab.active { background: var(--red); color: white; box-shadow: 0 4px 12px rgba(12,45,74,0.4); }
+  .tab.scanner-tab.active { background: var(--purple); }
+  .tab.admin-tab.active { background: var(--orange); }
+  .tab.blood-tab.active { background: var(--dark-red); }
+  .tab.insurance-tab.active { background: var(--teal); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card-bg); border-radius: 20px;
+    padding: clamp(18px, 4vw, 30px); box-shadow: var(--shadow);
+    margin-bottom: 20px; animation: slideUp 0.5s ease;
+    transition: background 0.4s ease;
+  }
+  @keyframes slideUp {
+    from { opacity:0; transform: translateY(20px); }
+    to { opacity:1; transform: translateY(0); }
+  }
+  .card h2 {
+    font-size: clamp(1.05rem, 2.5vw, 1.3rem); color: var(--blue);
+    margin-bottom: 18px; display: flex; align-items: center; gap: 10px;
+    padding-bottom: 12px; border-bottom: 2px solid var(--border);
+  }
+
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 0.82rem; font-weight: 600; color: var(--text-light); }
+  input, select, textarea {
+    padding: 12px 14px; border: 2px solid var(--border); border-radius: 12px;
+    font-size: 0.92rem; background: var(--input-bg); color: var(--text);
+    transition: all 0.2s; font-family: inherit; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--red); background: var(--card-bg); }
+  textarea { resize: vertical; min-height: 70px; }
+
+  .btn {
+    background: linear-gradient(135deg, var(--red), var(--dark-red)); color: white;
+    border: none; padding: 14px 28px; border-radius: 12px; font-size: 0.95rem;
+    font-weight: 700; cursor: pointer; width: 100%; margin-top: 16px;
+    transition: all 0.3s; box-shadow: 0 4px 15px rgba(12,45,74,0.3);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(12,45,74,0.4); }
+  .btn.secondary { background: linear-gradient(135deg, #2c6e8a, var(--blue)); }
+  .btn.green { background: linear-gradient(135deg, var(--green), var(--green-dark)); box-shadow: 0 4px 15px rgba(26,138,125,0.3); }
+  .btn.purple { background: linear-gradient(135deg, #0c2d4a, #143d5e); }
+  .btn.orange { background: linear-gradient(135deg, var(--orange), #1e6fa1); }
+  .btn.teal { background: linear-gradient(135deg, var(--teal), #14695f); }
+  .btn.small { width: auto; padding: 8px 16px; margin: 0; font-size: 0.8rem; }
+
+  .map-controls { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .map-filter {
+    padding: 8px 16px; border-radius: 20px; border: 2px solid var(--border);
+    background: var(--input-bg); color: var(--text); cursor: pointer;
+    font-size: 0.82rem; font-weight: 600; transition: all 0.2s;
+  }
+  .map-filter.active { background: var(--blue); color: white; border-color: var(--blue); }
+  .locate-btn {
+    margin-left: auto; padding: 8px 16px; background: var(--green); color: white;
+    border: none; border-radius: 20px; cursor: pointer; font-size: 0.82rem;
+    font-weight: 700; display: flex; align-items: center; gap: 6px;
+  }
+  #map, #trackMap { height: 400px; border-radius: 16px; z-index: 1; border: 2px solid var(--border); }
+
+  .hospital-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 20px; }
+  .hospital-card {
+    background: var(--input-bg); border-radius: 16px; padding: 16px;
+    border: 2px solid var(--border); transition: all 0.3s; cursor: pointer;
+    position: relative; overflow: hidden;
+  }
+  .hospital-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--red); }
+  .hospital-card.nearest { border-color: var(--green); background: linear-gradient(135deg, rgba(6,214,160,0.08), rgba(6,214,160,0.02)); }
+  .hospital-card.nearest::before {
+    content: '⭐ NEAREST'; position: absolute; top: 10px; right: -32px;
+    background: var(--green); color: white; padding: 4px 40px;
+    font-size: 0.65rem; font-weight: 800; letter-spacing: 1px; transform: rotate(45deg);
+  }
+  .hc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+  .hc-name { font-size: 1rem; font-weight: 800; color: var(--text); line-height: 1.2; margin-bottom: 4px; }
+  .hc-type { font-size: 0.7rem; color: var(--text-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .hc-distance {
+    background: var(--blue); color: white; padding: 6px 12px; border-radius: 10px;
+    font-size: 0.75rem; font-weight: 800; text-align: center; white-space: nowrap; flex-shrink: 0;
+  }
+  .hc-distance small { display: block; font-size: 0.6rem; opacity: 0.8; font-weight: 600; }
+  .hc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat {
+    background: var(--card-bg); padding: 8px 6px; border-radius: 10px;
+    text-align: center; border: 1px solid var(--border);
+  }
+  .stat-label { font-size: 0.6rem; color: var(--text-light); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .stat-value { font-size: 1rem; font-weight: 900; line-height: 1; }
+  .stat-value.good { color: var(--green); }
+  .stat-value.medium { color: var(--orange); }
+  .stat-value.low { color: var(--red); }
+  .hc-blood { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .hc-blood-label { font-size: 0.68rem; color: var(--text-light); font-weight: 700; text-transform: uppercase; margin-right: 4px; }
+  .blood-tag {
+    padding: 3px 8px; border-radius: 6px; font-size: 0.68rem; font-weight: 800;
+    background: rgba(12,45,74,0.12); color: var(--red); border: 1px solid rgba(12,45,74,0.25);
+  }
+  .blood-tag.yes { background: var(--red); color: white; border-color: var(--red); }
+  .blood-tag.no { opacity: 0.3; text-decoration: line-through; }
+  .hc-actions { display: flex; gap: 8px; }
+  .hc-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: none;
+    font-size: 0.8rem; font-weight: 700; cursor: pointer; text-decoration: none;
+    text-align: center; transition: all 0.2s; display: flex; align-items: center;
+    justify-content: center; gap: 4px;
+  }
+  .hc-btn.call { background: var(--green); color: white; }
+  .hc-btn.route { background: var(--blue); color: white; }
+
+  .eta-bar {
+    background: linear-gradient(90deg, var(--green), var(--green-dark)); color: white;
+    padding: 10px 14px; border-radius: 12px; display: flex;
+    align-items: center; justify-content: space-between; margin-bottom: 16px;
+    font-size: 0.85rem; font-weight: 700; box-shadow: 0 4px 15px rgba(26,138,125,0.3);
+  }
+  .eta-bar .eta-time { font-size: 1.1rem; font-weight: 900; }
+
+  .map-legend {
+    display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px;
+    padding: 12px; background: var(--input-bg); border-radius: 12px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; color: var(--text-light); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px var(--border); }
+
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(26,138,125,0.15); color: var(--teal);
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 0.65rem; font-weight: 800; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .live-dot {
+    width: 6px; height: 6px; background: var(--teal);
+    border-radius: 50%; animation: livePulse 1.5s infinite;
+  }
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(26,138,125,0.7); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(26,138,125,0); }
+  }
+
+  .scanner-container {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 20px; padding: 30px 20px; text-align: center;
+  }
+  .scanner-icon {
+    width: 120px; height: 120px; border-radius: 30px;
+    background: linear-gradient(135deg, #0c2d4a, #143d5e);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3.5rem; box-shadow: 0 20px 60px rgba(12,45,74,0.4);
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .scanner-title { font-size: 1.5rem; font-weight: 800; color: var(--blue); }
+  .scanner-sub { color: var(--text-light); font-size: 0.9rem; max-width: 400px; line-height: 1.5; }
+
+  .scan-btn {
+    background: linear-gradient(135deg, #0c2d4a, #143d5e); color: white;
+    border: none; padding: 18px 40px; border-radius: 16px;
+    font-size: 1rem; font-weight: 800; cursor: pointer;
+    box-shadow: 0 8px 30px rgba(12,45,74,0.4);
+    display: flex; align-items: center; gap: 10px;
+    transition: all 0.3s;
+  }
+  .scan-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(12,45,74,0.6); }
+
+  .scan-input-area {
+    width: 100%; max-width: 500px; background: var(--input-bg);
+    padding: 20px; border-radius: 16px; border: 2px dashed var(--border);
+  }
+  .scan-input-area textarea {
+    width: 100%; min-height: 100px; font-family: monospace;
+    font-size: 0.75rem; margin-bottom: 12px;
+  }
+  #reader { width: 100%; max-width: 400px; border-radius: 16px; overflow: hidden; display: none; }
+
+  .patient-dashboard { display: none; }
+  .patient-dashboard.active { display: block; animation: slideUp 0.5s; }
+
+  .patient-header {
+    background: linear-gradient(135deg, #0c2d4a, #081f33); color: white;
+    padding: 24px; border-radius: 20px; margin-bottom: 20px;
+    position: relative; overflow: hidden;
+  }
+  .patient-header::before {
+    content: ''; position: absolute; top: -50%; right: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(26,138,125,0.3), transparent 60%);
+  }
+  .patient-info { position: relative; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .patient-avatar {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: var(--teal); display: flex; align-items: center;
+    justify-content: center; font-size: 2.2rem; font-weight: 900;
+    border: 4px solid white; flex-shrink: 0;
+  }
+  .patient-details { flex: 1; min-width: 200px; }
+  .patient-name { font-size: 1.5rem; font-weight: 900; margin-bottom: 4px; }
+  .patient-meta { font-size: 0.85rem; opacity: 0.8; }
+
+  .blood-highlight {
+    background: var(--red); padding: 14px 24px; border-radius: 14px;
+    text-align: center; box-shadow: 0 8px 30px rgba(12,45,74,0.5);
+    position: relative;
+  }
+  .blood-highlight .bh-label {
+    font-size: 0.65rem; font-weight: 800; letter-spacing: 2px;
+    opacity: 0.9; margin-bottom: 4px;
+  }
+  .blood-highlight .bh-value { font-size: 2rem; font-weight: 900; line-height: 1; }
+
+  .critical-alert {
+    background: linear-gradient(135deg, #c0392b, #96281b); color: white;
+    padding: 16px 20px; border-radius: 14px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 8px 30px rgba(192,57,43,0.4);
+    animation: criticalPulse 2s infinite;
+  }
+  @keyframes criticalPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.01); }
+  }
+  .critical-icon { font-size: 2rem; }
+  .critical-text { flex: 1; }
+  .critical-label {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 1.5px;
+    opacity: 0.9; text-transform: uppercase;
+  }
+  .critical-value { font-size: 1.1rem; font-weight: 800; margin-top: 4px; }
+
+  .dashboard-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px; margin-bottom: 16px;
+  }
+  .dash-box {
+    background: var(--input-bg); padding: 16px; border-radius: 14px;
+    border-left: 4px solid var(--blue); transition: all 0.2s;
+  }
+  .dash-box.critical { border-left-color: var(--red); background: rgba(12,45,74,0.06); }
+  .dash-box.warning { border-left-color: var(--orange); background: rgba(41,128,185,0.06); }
+  .dash-box.success { border-left-color: var(--green); background: rgba(26,138,125,0.06); }
+  .dash-box.teal { border-left-color: var(--teal); background: rgba(26,138,125,0.06); }
+  .dash-box .db-label {
+    font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-light); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .dash-box .db-value { font-size: 0.95rem; font-weight: 700; color: var(--text); line-height: 1.4; word-break: break-word; }
+  .dash-box.critical .db-value { color: var(--red); }
+  .dash-box.teal .db-value { color: var(--teal); }
+
+  .call-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px; margin-top: 12px;
+  }
+  .call-btn {
+    display: flex; align-items: center; gap: 10px; padding: 14px;
+    background: var(--green); color: white; border-radius: 12px;
+    text-decoration: none; font-weight: 700; transition: all 0.2s;
+  }
+  .call-btn:hover { background: var(--green-dark); transform: translateX(4px); }
+  .call-btn .cb-icon { font-size: 1.4rem; }
+  .call-btn .cb-info { flex: 1; }
+  .call-btn .cb-name { font-size: 0.7rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; }
+  .call-btn .cb-phone { font-size: 0.95rem; font-weight: 800; }
+
+  .ambulance-tracker {
+    background: linear-gradient(135deg, #2980b9, #0c2d4a); color: white;
+    padding: 20px; border-radius: 16px; margin-top: 16px;
+    box-shadow: 0 10px 40px rgba(41,128,185,0.3);
+  }
+  .amb-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+  }
+  .amb-title { font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .amb-eta-box {
+    background: rgba(255,255,255,0.2); padding: 8px 16px;
+    border-radius: 10px; text-align: center;
+  }
+  .amb-eta-label { font-size: 0.65rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; }
+  .amb-eta-value { font-size: 1.3rem; font-weight: 900; }
+  .amb-progress {
+    height: 8px; background: rgba(255,255,255,0.25);
+    border-radius: 10px; overflow: hidden; margin-top: 10px;
+  }
+  .amb-progress-bar {
+    height: 100%; background: white; border-radius: 10px;
+    transition: width 1s linear; box-shadow: 0 0 10px rgba(255,255,255,0.7);
+  }
+  .amb-info {
+    display: flex; justify-content: space-between; margin-top: 10px;
+    font-size: 0.78rem; opacity: 0.95; flex-wrap: wrap; gap: 8px;
+  }
+
+  .notif-panel {
+    position: fixed; top: 80px; right: 20px; width: 340px;
+    max-width: calc(100vw - 40px); background: var(--card-bg);
+    border-radius: 16px; box-shadow: var(--shadow-lg);
+    z-index: 1000; display: none; overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .notif-panel.show { display: block; animation: slideInRight 0.4s; }
+  @keyframes slideInRight {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .notif-header {
+    background: linear-gradient(135deg, var(--red), var(--dark-red)); color: white;
+    padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;
+    font-weight: 800; font-size: 0.9rem;
+  }
+  .notif-close { background: transparent; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+  .notif-list { max-height: 400px; overflow-y: auto; }
+  .notif-item {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: rgba(12,45,74,0.12); color: var(--red);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .notif-body { flex: 1; }
+  .notif-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 2px; }
+  .notif-desc { font-size: 0.75rem; color: var(--text-light); line-height: 1.4; }
+  .notif-time { font-size: 0.65rem; color: var(--text-light); margin-top: 4px; }
+
+  .toast {
+    position: fixed; top: 20px; left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: var(--blue); color: white; padding: 14px 24px;
+    border-radius: 12px; font-weight: 600; font-size: 0.88rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 2000;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    max-width: 90vw; text-align: center;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+  .toast.warning { background: var(--orange); }
+
+  .loading-state { text-align: center; padding: 40px 20px; color: var(--text-light); }
+  .spinner-large {
+    display: inline-block; width: 40px; height: 40px;
+    border: 4px solid var(--border); border-top-color: var(--red);
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  #qrcode { padding: 16px; background: white; border-radius: 16px; border: 3px dashed var(--red); min-width: 232px; min-height: 232px; display: flex; align-items: center; justify-content: center; }
+  #qrcode img, #qrcode canvas { display: block; }
+
+  .id-card {
+    background: linear-gradient(135deg, #0c2d4a 0%, #081f33 100%); color: white;
+    padding: 22px; border-radius: 20px; width: 100%; max-width: 440px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .id-card::before {
+    content: ''; position: absolute; top: -50%; right: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(26,138,125,0.35), transparent 60%);
+  }
+  .id-header { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; position: relative; z-index: 1; }
+  .id-photo {
+    width: 64px; height: 64px; border-radius: 50%; background: var(--teal);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; font-weight: 900; border: 3px solid white; flex-shrink: 0;
+  }
+  .id-badge {
+    display: inline-block; background: var(--teal); padding: 3px 10px;
+    border-radius: 20px; font-size: 0.6rem; font-weight: 800;
+    letter-spacing: 1px; margin-bottom: 5px;
+  }
+  .id-name { font-size: 1.2rem; font-weight: 800; line-height: 1.1; }
+  .id-age { font-size: 0.72rem; opacity: 0.75; margin-top: 2px; }
+  .blood-big {
+    display: inline-block; background: var(--red); color: white;
+    font-weight: 900; font-size: 1.2rem; padding: 8px 16px;
+    border-radius: 10px; margin: 10px 0; position: relative; z-index: 1;
+    box-shadow: 0 4px 15px rgba(12,45,74,0.5);
+  }
+  .blood-big small { display: block; font-size: 0.55rem; font-weight: 700; opacity: 0.8; letter-spacing: 1px; }
+  .id-info-row {
+    display: flex; justify-content: space-between; padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.12); font-size: 0.78rem;
+    position: relative; z-index: 1;
+  }
+  .id-info-row span:first-child { opacity: 0.65; font-size: 0.68rem; text-transform: uppercase; }
+  .id-info-row span:last-child { font-weight: 600; text-align: right; max-width: 65%; }
+
+  .login-screen {
+    position: fixed; inset: 0; background: linear-gradient(135deg, #0c2d4a, #143d5e);
+    display: none; align-items: center; justify-content: center;
+    z-index: 5000; padding: 20px;
+  }
+  .login-screen.show { display: flex; animation: fadeIn 0.3s; }
+  .login-box {
+    background: var(--card-bg); border-radius: 24px; padding: 32px;
+    max-width: 420px; width: 100%; box-shadow: var(--shadow-lg);
+    text-align: center;
+  }
+  .login-box h2 { color: var(--blue); margin-bottom: 6px; font-size: 1.5rem; border: none; padding: 0; display: block; }
+  .login-box p { color: var(--text-light); font-size: 0.85rem; margin-bottom: 24px; }
+  .role-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .role-card {
+    padding: 20px 12px; border-radius: 16px; border: 3px solid var(--border);
+    background: var(--input-bg); cursor: pointer; transition: all 0.2s;
+    text-align: center;
+  }
+  .role-card:hover { border-color: var(--red); transform: translateY(-3px); }
+  .role-card.active { border-color: var(--red); background: linear-gradient(135deg, rgba(12,45,74,0.1), rgba(12,45,74,0.03)); }
+  .role-card .role-icon { font-size: 2.5rem; margin-bottom: 8px; }
+  .role-card .role-name { font-weight: 800; font-size: 0.95rem; }
+  .role-card .role-desc { font-size: 0.7rem; color: var(--text-light); margin-top: 4px; }
+
+  .admin-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px; margin-bottom: 20px;
+  }
+  .admin-stat {
+    background: var(--card-bg); padding: 18px; border-radius: 14px;
+    border: 2px solid var(--border); text-align: center;
+  }
+  .admin-stat .as-icon { font-size: 2rem; margin-bottom: 8px; }
+  .admin-stat .as-value { font-size: 1.8rem; font-weight: 900; color: var(--blue); line-height: 1; }
+  .admin-stat .as-label { font-size: 0.72rem; color: var(--text-light); text-transform: uppercase; font-weight: 700; margin-top: 6px; }
+
+  .bed-editor {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px; padding: 16px; background: var(--input-bg); border-radius: 12px;
+    margin-top: 12px;
+  }
+
+  .donor-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px; margin-top: 16px;
+  }
+  .donor-card {
+    background: var(--input-bg); border-radius: 14px; padding: 16px;
+    border-left: 4px solid var(--red); transition: all 0.2s;
+    display: flex; gap: 14px; align-items: center;
+  }
+  .donor-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+  .donor-avatar {
+    width: 56px; height: 56px; border-radius: 50%; background: var(--red);
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; font-weight: 900; flex-shrink: 0;
+  }
+  .donor-info { flex: 1; min-width: 0; }
+  .donor-name { font-weight: 800; font-size: 0.95rem; margin-bottom: 3px; }
+  .donor-meta { font-size: 0.72rem; color: var(--text-light); }
+  .donor-blood {
+    background: var(--red); color: white; padding: 6px 12px;
+    border-radius: 8px; font-weight: 900; font-size: 0.85rem; flex-shrink: 0;
+  }
+
+  .insurance-card {
+    background: linear-gradient(135deg, #1a8a7d, #14695f);
+    color: white; border-radius: 18px; padding: 22px;
+    box-shadow: 0 12px 40px rgba(26,138,125,0.35);
+    position: relative; overflow: hidden;
+    margin-top: 16px;
+  }
+  .insurance-card::before {
+    content: '🏥'; position: absolute; top: -20px; right: -10px;
+    font-size: 8rem; opacity: 0.08; transform: rotate(-15deg);
+  }
+  .ins-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; position: relative; z-index: 1; flex-wrap: wrap; gap: 10px; }
+  .ins-provider { font-size: 1.15rem; font-weight: 900; line-height: 1.2; }
+  .ins-plan { font-size: 0.75rem; opacity: 0.85; margin-top: 3px; }
+  .ins-badge {
+    background: rgba(255,255,255,0.25); padding: 6px 14px;
+    border-radius: 20px; font-size: 0.7rem; font-weight: 800;
+    letter-spacing: 1px; text-transform: uppercase;
+    border: 2px solid rgba(255,255,255,0.4);
+  }
+  .ins-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; position: relative; z-index: 1; }
+  .ins-item {
+    background: rgba(255,255,255,0.15); padding: 12px;
+    border-radius: 10px; backdrop-filter: blur(6px);
+  }
+  .ins-label { font-size: 0.62rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
+  .ins-value { font-size: 0.95rem; font-weight: 800; word-break: break-word; }
+  .ins-verify {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.95); color: var(--teal);
+    padding: 10px 18px; border-radius: 10px; font-weight: 800;
+    font-size: 0.8rem; text-decoration: none; margin-top: 14px;
+    position: relative; z-index: 1; border: none; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .ins-verify:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+
+  .voice-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px; background: var(--input-bg); border-radius: 12px;
+    margin-bottom: 10px; gap: 12px;
+  }
+  .switch {
+    position: relative; width: 50px; height: 28px; background: var(--border);
+    border-radius: 20px; cursor: pointer; transition: all 0.3s; flex-shrink: 0;
+  }
+  .switch.on { background: var(--green); }
+  .switch::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 22px; height: 22px; background: white; border-radius: 50%;
+    transition: all 0.3s; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  .switch.on::after { left: 25px; }
+
+  @media (max-width: 640px) {
+    body { padding: 12px; }
+    .sos-btn { width: 60px; height: 60px; bottom: 14px; right: 14px; }
+    #map, #trackMap { height: 320px; }
+    .hospital-list { grid-template-columns: 1fr; }
+    .notif-panel { top: 70px; right: 10px; width: calc(100vw - 20px); }
+    .blood-highlight .bh-value { font-size: 1.6rem; }
+    .lang-grid { grid-template-columns: 1fr; }
+    .role-picker { grid-template-columns: 1fr; }
+  }
+  @media (min-width: 768px) { #map, #trackMap { height: 500px; } }
+  @media (min-width: 1200px) { #map, #trackMap { height: 550px; } }
+
+  .hospital-pin {
+    width: 32px; height: 32px; background: var(--red);
+    border: 3px solid white; border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg); box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .hospital-pin::after {
+    content: '🏥'; position: absolute; inset: 0; transform: rotate(45deg);
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .hospital-pin.green { background: var(--green); }
+  .hospital-pin.orange { background: var(--orange); }
+  .hospital-pin.red { background: var(--red); }
+  .user-pin {
+    width: 20px; height: 20px; background: #4a9eff; border: 4px solid white;
+    border-radius: 50%; box-shadow: 0 0 0 6px rgba(74,158,255,0.3), 0 4px 12px rgba(0,0,0,0.4);
+    animation: userPulse 2s infinite;
+  }
+  @keyframes userPulse {
+    0%, 100% { box-shadow: 0 0 0 6px rgba(74,158,255,0.3), 0 4px 12px rgba(0,0,0,0.4); }
+    50% { box-shadow: 0 0 0 14px rgba(74,158,255,0.1), 0 4px 12px rgba(0,0,0,0.4); }
+  }
+  .ambulance-pin {
+    width: 44px; height: 44px; background: var(--orange);
+    border: 3px solid white; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; box-shadow: 0 4px 15px rgba(41,128,185,0.7);
+    animation: ambPulse 1.5s infinite;
+  }
+  @keyframes ambPulse {
+    0%, 100% { box-shadow: 0 4px 15px rgba(41,128,185,0.7); }
+    50% { box-shadow: 0 4px 30px rgba(41,128,185,1); }
+  }
+</style>
+</head>
+<body>
+
+<button class="sos-btn" onclick="triggerSOS()" title="Emergency SOS">
+  <span>🚨</span><span>SOS</span>
+</button>
+
+<div class="toast" id="toast"></div>
+
+<!-- LANGUAGE MODAL -->
+<div class="lang-modal" id="langModal">
+  <div class="lang-box" onclick="event.stopPropagation()">
+    <h3 id="langModalTitle">🌐 Choose Your Language</h3>
+    <p id="langModalSub">Select your preferred language</p>
+    <div class="lang-grid" id="langGrid"></div>
+  </div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h2 id="loginTitleEl">🔐 LifeLink Login</h2>
+    <p id="loginSubEl">Choose your role to continue</p>
+    <div class="role-picker">
+      <div class="role-card" onclick="selectRole('patient', this)" id="rolePatient">
+        <div class="role-icon">🧑‍🦱</div>
+        <div class="role-name" id="rolePatientName">Patient</div>
+        <div class="role-desc" id="rolePatientDesc">Register & manage your health</div>
+      </div>
+      <div class="role-card" onclick="selectRole('doctor', this)" id="roleDoctor">
+        <div class="role-icon">👨‍⚕️</div>
+        <div class="role-name" id="roleDoctorName">Doctor / Nurse</div>
+        <div class="role-desc" id="roleDoctorDesc">Scan patients & manage beds</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label id="lblUsername">Username</label>
+      <input type="text" id="loginUser" placeholder="Enter username">
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label id="lblPassword">Password</label>
+      <input type="password" id="loginPass" placeholder="Enter password">
+    </div>
+    <button class="btn" onclick="doLogin()" id="loginBtnEl">🔓 Login</button>
+    <button class="btn secondary" onclick="skipLogin()" style="margin-top:8px;" id="skipLoginEl">Skip (Demo Mode)</button>
+    <p style="font-size:0.72rem;color:var(--text-light);margin-top:14px;" id="demoHintEl">
+      💡 Demo: Any username/password works
+    </p>
+  </div>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-header">
+    <span id="notifHeaderText">🔔 Notifications</span>
+    <button class="notif-close" onclick="closeNotif()">✕</button>
+  </div>
+  <div class="notif-list" id="notifList"></div>
+</div>
+
+<div class="container">
+  <div class="topbar">
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
+    <div class="topbar-right">
+      <button class="install-btn" id="installBtn" onclick="installPWA()">📲 <span id="installText">Install App</span></button>
+      <button class="role-toggle" onclick="openLogin()" id="roleBtn">👤 <span id="loginText">Login</span></button>
+      <button class="role-toggle" onclick="toggleNotifications()">🔔 <span id="alertsText">Alerts</span> <span id="notifCount" style="background:var(--red);padding:2px 6px;border-radius:10px;font-size:0.7rem;">0</span></button>
+      <button class="lang-toggle" onclick="openLangModal()" id="langBtn">🌐 English</button>
+    </div>
+  </div>
+
+  <header>
+    <h1>🚑 Life<span>Link</span> <span style="font-size:0.55em;opacity:0.7;">v7.2</span></h1>
+    <p id="tagline">Complete Emergency Response Network</p>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab(0)" id="tabBtn0">📝 Register</div>
+    <div class="tab" onclick="switchTab(1)" id="tabBtn1">🚨 Emergency</div>
+    <div class="tab" onclick="switchTab(2)" id="tabBtn2">🏥 Hospitals</div>
+    <div class="tab insurance-tab" onclick="switchTab(3)" id="tabBtn3">🏥 Insurance</div>
+    <div class="tab scanner-tab" onclick="switchTab(4)" id="tabBtn4">👨‍⚕️ Scanner</div>
+    <div class="tab blood-tab" onclick="switchTab(5)" id="tabBtn5">🩸 Blood Donors</div>
+    <div class="tab admin-tab" onclick="switchTab(6)" id="tabBtn6">📊 Admin</div>
+    <div class="tab" onclick="switchTab(7)" id="tabBtn7">⚙️ Settings</div>
+  </div>
+
+  <!-- TAB 0: REGISTER -->
+  <div class="tab-content active" id="tab0">
+    <div class="card">
+      <h2 id="regTitleEl">👤 Patient Registration</h2>
+      <form id="regForm" onsubmit="handleSubmit(event)">
+        <div class="form-grid">
+          <div class="form-group"><label id="lblFullName">Full Name *</label><input type="text" id="name" placeholder="Enter full name" required></div>
+          <div class="form-group">
+            <label id="lblBloodGroup">Blood Group *</label>
+            <select id="blood" required>
+              <option value="" id="optSelect1">Select</option>
+              <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+              <option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
+            </select>
+          </div>
+          <div class="form-group"><label id="lblAge">Age</label><input type="number" id="age" min="0" max="120" placeholder="Enter age"></div>
+          <div class="form-group">
+            <label id="lblGender">Gender</label>
+            <select id="gender">
+              <option value="" id="optSelect2">Select</option>
+              <option value="Male" id="optMale">Male</option>
+              <option value="Female" id="optFemale">Female</option>
+              <option value="Other" id="optOther">Other</option>
+            </select>
+          </div>
+          <div class="form-group full"><label id="lblAllergies">💊 Allergies (Critical)</label><input type="text" id="allergies" placeholder="e.g. Penicillin, Peanuts"></div>
+          <div class="form-group full"><label id="lblConditions">🏥 Medical Conditions</label><input type="text" id="diseases" placeholder="e.g. Diabetes, Hypertension"></div>
+          <div class="form-group full"><label id="lblMedicines">💉 Current Medicines</label><textarea id="medicines" placeholder="List current medications..."></textarea></div>
+          <div class="form-group full">
+            <label id="lblOrgan">🫀 Organ Donor</label>
+            <select id="organ">
+              <option value="" id="optOrganPrefer">Prefer not to say</option>
+              <option value="Yes" id="optOrganYes">Yes — I am an organ donor</option>
+              <option value="No" id="optOrganNo">No</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- INSURANCE SECTION -->
+        <h2 style="margin-top:28px;color:var(--teal);" id="insuranceTitleEl">🏥 Health Insurance (Optional)</h2>
+        <p style="font-size:0.78rem;color:var(--text-light);margin-bottom:14px;" id="insuranceHintEl">
+          💡 Add insurance details for faster cashless admission in emergencies
+        </p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label id="lblInsProvider">Insurance Provider</label>
+            <select id="insProvider">
+              <option value="" id="optInsProvider">Select Provider</option>
+              <option>Star Health Insurance</option>
+              <option>HDFC ERGO</option>
+              <option>ICICI Lombard</option>
+              <option>Bajaj Allianz</option>
+              <option>Max Bupa</option>
+              <option>Niva Bupa</option>
+              <option>Aditya Birla Health</option>
+              <option>New India Assurance</option>
+              <option>National Insurance</option>
+              <option>Oriental Insurance</option>
+              <option>United India Insurance</option>
+              <option>Care Health Insurance</option>
+              <option>ManipalCigna</option>
+              <option>Reliance General</option>
+              <option>Tata AIG</option>
+              <option>Future Generali</option>
+              <option>SBI General</option>
+              <option>Kotak Mahindra</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="lblInsPolicy">Policy Number</label>
+            <input type="text" id="insPolicy" placeholder="e.g. SH-2024-XXXXXX">
+          </div>
+          <div class="form-group">
+            <label id="lblInsSum">Sum Insured (₹)</label>
+            <select id="insSum">
+              <option value="" id="optInsSum">Select</option>
+              <option>1,00,000</option>
+              <option>2,00,000</option>
+              <option>3,00,000</option>
+              <option>5,00,000</option>
+              <option>7,50,000</option>
+              <option>10,00,000</option>
+              <option>15,00,000</option>
+              <option>20,00,000</option>
+              <option>25,00,000</option>
+              <option>50,00,000</option>
+              <option>1,00,00,000</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="lblInsValid">Valid Till</label>
+            <input type="date" id="insValid">
+          </div>
+          <div class="form-group">
+            <label id="lblInsCashless">Cashless Facility</label>
+            <select id="insCashless">
+              <option value="" id="optCashless">Select</option>
+              <option value="Yes" id="optCashlessYes">Yes</option>
+              <option value="No" id="optCashlessNo">No</option>
+              <option value="Not sure" id="optCashlessNotSure">Not sure</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="lblInsHelpline">TPA / Insurance Helpline</label>
+            <input type="tel" id="insHelpline" placeholder="1800-XXX-XXXX">
+          </div>
+          <div class="form-group full">
+            <label id="lblInsNotes">Insurance Notes (Optional)</label>
+            <input type="text" id="insNotes" placeholder="Pre-existing diseases, copay, etc.">
+          </div>
+        </div>
+
+        <h2 style="margin-top:28px;" id="contactsTitleEl">👨‍👩‍👧 Family / Emergency Contacts</h2>
+        <div class="form-grid">
+          <div class="form-group"><label id="lblC1Name">Contact 1 — Name</label><input type="text" id="c1name" placeholder="Enter name"></div>
+          <div class="form-group"><label id="lblC1Rel">Contact 1 — Relation</label><input type="text" id="c1rel" placeholder="e.g. Father, Spouse"></div>
+          <div class="form-group"><label id="lblC1Phone">Contact 1 — Phone</label><input type="tel" id="c1phone" placeholder="+91 XXXXX XXXXX"></div>
+          <div class="form-group"><label id="lblC2Name">Contact 2 — Name</label><input type="text" id="c2name" placeholder="Enter name"></div>
+          <div class="form-group"><label id="lblC2Rel">Contact 2 — Relation</label><input type="text" id="c2rel" placeholder="e.g. Mother, Brother"></div>
+          <div class="form-group"><label id="lblC2Phone">Contact 2 — Phone</label><input type="tel" id="c2phone" placeholder="+91 XXXXX XXXXX"></div>
+        </div>
+
+        <button type="submit" class="btn" id="generateQREl">🔗 Generate LifeLink QR Code</button>
+      </form>
+    </div>
+
+    <div class="card" id="result" style="display:none;">
+      <h2 id="qrReadyEl">✅ Your LifeLink is Ready!</h2>
+      <div class="qr-wrap">
+        <div id="qrcode"></div>
+        <p style="text-align:center; color:var(--text-light); font-size:0.85rem;" id="qrHintEl">📱 Print or save this QR. Show it to any doctor/nurse in emergency.</p>
+        <div class="id-card" id="idCard">
+          <div class="id-header">
+            <div class="id-photo" id="idPhoto">A</div>
+            <div>
+              <div class="id-badge" id="lifelinkIDEl">❤️ LIFELINK ID</div>
+              <div class="id-name" id="previewName">—</div>
+              <div class="id-age" id="previewAge">—</div>
+            </div>
+          </div>
+          <div class="blood-big"><small id="bloodGroupLabelEl">BLOOD GROUP</small><span id="previewBlood">—</span></div>
+          <div class="id-info-row"><span id="allergiesLabelEl">Allergies</span><span id="previewAllergies">—</span></div>
+          <div class="id-info-row"><span id="conditionsLabelEl">Conditions</span><span id="previewDiseases">—</span></div>
+          <div class="id-info-row" id="previewInsRow" style="display:none;"><span id="insuranceLabelEl">Insurance</span><span id="previewInsurance">—</span></div>
+          <div class="id-info-row"><span id="emergency1LabelEl">Emergency 1</span><span id="previewC1">—</span></div>
+          <div class="id-info-row"><span id="emergency2LabelEl">Emergency 2</span><span id="previewC2">—</span></div>
+        </div>
+        <button class="btn secondary" onclick="downloadQR()" id="downloadQREl">⬇️ Download QR Code</button>
+        <button class="btn purple" onclick="demoScan()" id="demoScanEl">🎬 Demo: Doctor Scanner</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 1: EMERGENCY -->
+  <div class="tab-content" id="tab1">
+    <div class="card">
+      <div style="background:linear-gradient(135deg,var(--red),var(--dark-red));color:white;padding:22px;border-radius:16px;margin-bottom:20px;text-align:center;">
+        <h2 style="color:white;border:none;justify-content:center;font-size:1.3rem;padding:0;margin-bottom:6px;" id="emergencyInfoEl">🚨 EMERGENCY MEDICAL INFO</h2>
+        <p style="font-size:0.85rem;opacity:0.9;" id="showRespondersEl">Show this to medical responders immediately</p>
+      </div>
+      <div class="dashboard-grid">
+        <div class="dash-box critical"><div class="db-label" id="eBloodLabel">🩸 Blood Group</div><div class="db-value" id="eBlood" style="font-size:1.3rem;">—</div></div>
+        <div class="dash-box critical"><div class="db-label" id="eAllergiesLabel">⚠️ Allergies</div><div class="db-value" id="eAllergies">—</div></div>
+        <div class="dash-box warning"><div class="db-label" id="eDiseasesLabel">🏥 Conditions</div><div class="db-value" id="eDiseases">—</div></div>
+        <div class="dash-box"><div class="db-label" id="eMedicinesLabel">💉 Medicines</div><div class="db-value" id="eMedicines">—</div></div>
+        <div class="dash-box teal" id="eInsuranceBox"><div class="db-label" id="eInsuranceLabel">🏥 Insurance</div><div class="db-value" id="eInsurance">—</div></div>
+      </div>
+      <h2 style="margin-top:24px;font-size:1.1rem;" id="emergencyContactsEl">📞 Emergency Contacts</h2>
+      <div class="call-grid">
+        <a href="#" class="call-btn" id="callBtn1"><span class="cb-icon">📞</span><div class="cb-info"><div class="cb-name" id="eC1Name">Contact 1</div><div class="cb-phone" id="eC1Phone">—</div></div></a>
+        <a href="#" class="call-btn" id="callBtn2"><span class="cb-icon">📞</span><div class="cb-info"><div class="cb-name" id="eC2Name">Contact 2</div><div class="cb-phone" id="eC2Phone">—</div></div></a>
+      </div>
+      <button class="btn green" style="margin-top:18px;" onclick="switchTab(2); setTimeout(loadHospitals, 300);" id="findHospitalsEl">🏥 Find Nearby Hospitals & Blood</button>
+    </div>
+  </div>
+
+  <!-- TAB 2: HOSPITALS -->
+  <div class="tab-content" id="tab2">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <h2 style="margin:0;border:none;padding:0;" id="liveNetworkEl">🗺️ Live Hospital Network</h2>
+        <span class="live-badge"><span class="live-dot"></span><span id="liveDataEl">LIVE DATA</span></span>
+      </div>
+      <div class="eta-bar" id="etaBar">
+        <span>⚡ <span id="nearestEl">Nearest</span>: <span id="etaLabel">—</span></span>
+        <span class="eta-time" id="etaTime">— min</span>
+      </div>
+      <div class="map-controls">
+        <button class="map-filter active" onclick="filterHospitals('all', this)" id="filterAllEl">All</button>
+        <button class="map-filter" onclick="filterHospitals('icu', this)" id="filterICUEl">🛏️ ICU</button>
+        <button class="map-filter" onclick="filterHospitals('blood', this)" id="filterBloodEl">🩸 Blood Match</button>
+        <button class="map-filter" onclick="filterHospitals('trauma', this)" id="filterTraumaEl">🚑 Trauma</button>
+        <button class="locate-btn" onclick="locateUser()" id="myLocationEl">📍 My Location</button>
+      </div>
+      <div id="map"></div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green);"></div><span id="legendReadyEl">Ready</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange);"></div><span id="legendLimitedEl">Limited</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red);"></div><span id="legendFullEl">Full</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4a9eff;"></div><span id="legendYouEl">You</span></div>
+      </div>
+      <div class="hospital-list" id="hospitalList">
+        <div class="loading-state"><div class="spinner-large"></div><p id="loadingHospitalsEl">Loading nearby hospitals...</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: INSURANCE -->
+  <div class="tab-content" id="tab3">
+    <div class="card">
+      <h2 style="color:var(--teal);" id="insuranceTitleEl2">🏥 Health Insurance</h2>
+      <div id="insuranceContent">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-light);">
+          <div style="font-size:3rem;margin-bottom:12px;">🏥</div>
+          <p id="insuranceEmptyEl">No insurance registered yet.</p>
+          <p style="font-size:0.8rem;margin-top:6px;" id="insuranceEmptyHintEl">Register a patient with insurance details to see them here.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="insuranceHelpEl">💡 Insurance Help & Emergency Numbers</h2>
+      <div class="dashboard-grid">
+        <div class="dash-box teal">
+          <div class="db-label" id="emergencyNumEl">🚨 Emergency</div>
+          <div class="db-value">108 — Ambulance<br>102 — Medical Helpline<br>112 — All Emergency</div>
+        </div>
+        <div class="dash-box teal">
+          <div class="db-label" id="ayushmanEl">🏥 Ayushman Bharat</div>
+          <div class="db-value">14555 — PM-JAY Helpline<br>Cashless treatment up to ₹5 lakh/year</div>
+        </div>
+        <div class="dash-box teal">
+          <div class="db-label" id="irdaiEl">🛡️ IRDAI</div>
+          <div class="db-value">155255 — Insurance Ombudsman<br>For claim disputes</div>
+        </div>
+        <div class="dash-box teal">
+          <div class="db-label" id="cmchisEl">💊 CMCHIS (TN)</div>
+          <div class="db-value">104 — Health Helpline<br>Chief Minister's Health Insurance</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: SCANNER -->
+  <div class="tab-content" id="tab4">
+    <div class="card" id="scannerView">
+      <h2 id="scannerTitleEl">👨‍⚕️ Doctor / Nurse Scanner</h2>
+      <div class="scanner-container">
+        <div class="scanner-icon">📷</div>
+        <div class="scanner-title" id="scanPatientQREl">Scan Patient QR</div>
+        <div class="scanner-sub" id="scannerDescEl">Point camera at patient's LifeLink QR code to access their complete medical profile.</div>
+        <button class="scan-btn" onclick="startCameraScan()"><span>📷</span> <span id="openCameraEl">Open Camera Scanner</span></button>
+        <div style="color:var(--text-light);font-size:0.8rem;margin-top:8px;" id="orTextEl">— OR —</div>
+        <div class="scan-input-area">
+          <label style="font-weight:700;font-size:0.85rem;margin-bottom:8px;display:block;" id="pasteURLEl">🔗 Paste QR URL / Patient ID</label>
+          <textarea id="scanInput" placeholder="Paste LifeLink URL here..."></textarea>
+          <button class="btn purple" onclick="processScanInput()" style="margin-top:0;" id="analyzePatientEl">🔍 Analyze Patient</button>
+        </div>
+        <div id="reader"></div>
+      </div>
+    </div>
+    <div class="patient-dashboard" id="patientDashboard"></div>
+  </div>
+
+  <!-- TAB 5: BLOOD DONORS -->
+  <div class="tab-content" id="tab5">
+    <div class="card">
+      <h2 id="bloodDonorTitleEl">🩸 Blood Donor Network</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label id="searchBloodGroupEl">Search Blood Group</label>
+          <select id="donorSearchBlood" onchange="renderDonors()">
+            <option value="" id="allBloodGroupsEl">All Blood Groups</option>
+            <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+            <option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="searchCityEl">City / Area</label>
+          <input type="text" id="donorSearchCity" placeholder="e.g. Chennai" oninput="renderDonors()">
+        </div>
+        <div class="form-group">
+          <label id="maxDistanceEl">Max Distance (km)</label>
+          <input type="number" id="donorSearchDist" value="20" min="1" max="200" onchange="renderDonors()">
+        </div>
+      </div>
+      <button class="btn" onclick="registerDonor()" style="margin-top:16px;" id="registerAsDonorEl">🩸 Register as Blood Donor</button>
+      <div class="donor-grid" id="donorGrid"></div>
+    </div>
+  </div>
+
+  <!-- TAB 6: ADMIN -->
+  <div class="tab-content" id="tab6">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <h2 style="margin:0;border:none;padding:0;" id="adminDashboardEl">📊 Admin Dashboard</h2>
+        <span class="live-badge"><span class="live-dot"></span><span id="realTimeEl">REAL-TIME</span></span>
+      </div>
+      <div class="admin-stats" id="adminStats"></div>
+      <h2 id="bedManagementEl">🛏️ Bed & ICU Management</h2>
+      <div id="bedEditorList"></div>
+    </div>
+  </div>
+
+  <!-- TAB 7: SETTINGS -->
+  <div class="tab-content" id="tab7">
+    <div class="card">
+      <h2 id="settingsTitleEl">⚙️ Settings</h2>
+      <h3 style="color:var(--blue);font-size:1rem;margin-bottom:12px;" id="voiceAlertsEl">🔊 Voice Alerts</h3>
+      <div class="voice-row">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:0.9rem;" id="sosSoundEl">SOS Sound</div>
+          <div style="font-size:0.75rem;color:var(--text-light);" id="sosSoundDescEl">Loud alarm when SOS triggered</div>
+        </div>
+        <div class="switch on" id="switchSound" onclick="toggleSwitch('sound')"></div>
+      </div>
+      <div class="voice-row">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:0.9rem;" id="sosSpeechEl">Voice Announcement</div>
+          <div style="font-size:0.75rem;color:var(--text-light);" id="sosSpeechDescEl">Speaks emergency info aloud</div>
+        </div>
+        <div class="switch on" id="switchSpeech" onclick="toggleSwitch('speech')"></div>
+      </div>
+      <div class="voice-row">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:0.9rem;" id="vibrationEl">Vibration</div>
+          <div style="font-size:0.75rem;color:var(--text-light);" id="vibrationDescEl">Vibrate on alerts</div>
+        </div>
+        <div class="switch on" id="switchVibrate" onclick="toggleSwitch('vibrate')"></div>
+      </div>
+      <button class="btn green" onclick="testVoiceAlert()" style="margin-top:16px;" id="testVoiceEl">🔊 Test Voice Alert</button>
+
+      <h3 style="color:var(--blue);font-size:1rem;margin-top:26px;margin-bottom:12px;" id="backendConfigEl">☁️ Backend Config</h3>
+      <div class="form-group">
+        <label id="supabaseUrlEl">Supabase URL (Optional)</label>
+        <input type="text" id="supabaseUrl" placeholder="https://xxx.supabase.co">
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label id="supabaseKeyEl">Supabase Anon Key (Optional)</label>
+        <input type="password" id="supabaseKey" placeholder="eyJhbGci...">
+      </div>
+      <button class="btn secondary" onclick="saveBackend()" style="margin-top:12px;" id="saveBackendEl">💾 Save Backend Config</button>
+      <p style="font-size:0.75rem;color:var(--text-light);margin-top:10px;" id="backendHintEl">
+        💡 Leave empty to use mock data. Add your own Supabase project for real data.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   LIFELINK v7.2 — FULL TRANSLATIONS + QR FIX
+   ========================================================= */
+
+const I18N = {
+  en: {
+    chooseLang: "🌐 Choose Your Language",
+    selectLang: "Select your preferred language",
+    tagline: "Complete Emergency Response Network",
+    tabRegister: "📝 Register", tabEmergency: "🚨 Emergency",
+    tabHospitals: "🏥 Hospitals", tabInsurance: "🏥 Insurance",
+    tabScanner: "👨‍⚕️ Scanner", tabBlood: "🩸 Blood Donors",
+    tabAdmin: "📊 Admin", tabSettings: "⚙️ Settings",
+    regTitle: "👤 Patient Registration",
+    fullName: "Full Name *", bloodGroup: "Blood Group *", age: "Age", gender: "Gender",
+    select: "Select", male: "Male", female: "Female", other: "Other",
+    allergies: "💊 Allergies (Critical)", conditions: "🏥 Medical Conditions",
+    medicines: "💉 Current Medicines", organDonor: "🫀 Organ Donor",
+    preferNot: "Prefer not to say", organYes: "Yes — I am an organ donor", no: "No",
+    contactsTitle: "👨‍👩‍👧 Family / Emergency Contacts",
+    contact1Name: "Contact 1 — Name", contact1Rel: "Contact 1 — Relation", contact1Phone: "Contact 1 — Phone",
+    contact2Name: "Contact 2 — Name", contact2Rel: "Contact 2 — Relation", contact2Phone: "Contact 2 — Phone",
+    generateQR: "🔗 Generate LifeLink QR Code",
+    qrReady: "✅ Your LifeLink is Ready!",
+    qrHint: "📱 Print or save this QR. Show it to any doctor/nurse in emergency.",
+    lifelinkID: "❤️ LIFELINK ID", bloodGroupLabel: "BLOOD GROUP",
+    allergiesLabel: "Allergies", conditionsLabel: "Conditions",
+    emergency1Label: "Emergency 1", emergency2Label: "Emergency 2",
+    downloadQR: "⬇️ Download QR Code", demoScan: "🎬 Demo: Doctor Scanner",
+    emergencyInfo: "🚨 EMERGENCY MEDICAL INFO",
+    showResponders: "Show this to medical responders immediately",
+    medicinesLabel: "Medicines", emergencyContacts: "📞 Emergency Contacts",
+    findHospitals: "🏥 Find Nearby Hospitals & Blood",
+    liveNetwork: "🗺️ Live Hospital Network", liveData: "LIVE DATA",
+    nearest: "Nearest", filterAll: "All", filterICU: "🛏️ ICU",
+    filterBlood: "🩸 Blood Match", filterTrauma: "🚑 Trauma", myLocation: "📍 My Location",
+    legendReady: "Ready", legendLimited: "Limited", legendFull: "Full", legendYou: "You",
+    loadingHospitals: "Loading nearby hospitals...",
+    scannerTitle: "👨‍⚕️ Doctor / Nurse Scanner",
+    scanPatientQR: "Scan Patient QR",
+    scannerDesc: "Point camera at patient's LifeLink QR code to access their complete medical profile.",
+    openCamera: "Open Camera Scanner", orText: "— OR —",
+    pasteURL: "🔗 Paste QR URL / Patient ID", analyzePatient: "🔍 Analyze Patient",
+    qrGenerated: "✅ LifeLink QR generated!",
+    qrDownloaded: "⬇️ QR downloaded!",
+    qrFailed: "❌ QR generation failed. Try again.",
+    cameraOpening: "📷 Camera opening...",
+    cameraDenied: "❌ Camera access denied",
+    pasteWarning: "⚠️ Paste QR URL or patient ID",
+    patientLoaded: "✅ Patient data loaded",
+    invalidQR: "❌ Invalid QR format",
+    couldNotRead: "❌ Could not read QR data",
+    noHospitals: "😔 No hospitals match this filter",
+    alerts: "Alerts", close: "✕ Close",
+    recommendedHospital: "🏥 Recommended Hospital for This Patient",
+    bloodNetwork: "🩸 Blood Availability Network",
+    nearbyBloodBanks: "Nearby blood banks with matching blood group",
+    callHospital: "📞 Call Hospital", navigate: "🧭 Navigate", call: "📞 Call",
+    ambulanceDispatched: "🚑 108 Ambulance Dispatched",
+    vehicle: "Vehicle", driver: "Driver", contact: "Contact",
+    enRoute: "🚦 En route to pickup", almostArrived: "✅ Almost arrived",
+    twoMinAway: "🚦 2 min away", arrivedPatient: "✅ Arrived at patient",
+    alertFamily: "📲 Alert Family", dispatchAmbulance: "🚑 Dispatch Ambulance",
+    printReport: "🖨️ Print Report",
+    familyNotified: "📲 Alert sent", ambulanceOnWay: "🚑 108 Ambulance dispatched!",
+    livePatientData: "LIVE PATIENT DATA",
+    criticalAllergyAlert: "CRITICAL ALLERGY ALERT",
+    units: "UNITS", kmAway: "km away",
+    bedsFree: "🛏️ Beds", icuFree: "🚑 ICU", bloodMatch: "🩸 Blood Match",
+    yes: "YES ✓", noMatch: "NO ✗",
+    dark: "🌙 Dark", light: "☀️ Light",
+    openHospitalsFirst: "💡 Open Hospitals tab first",
+    install: "Install App", login: "Login",
+    loginTitle: "🔐 LifeLink Login",
+    loginSubtitle: "Choose your role to continue",
+    patientRole: "Patient", patientDesc: "Register & manage health",
+    doctorRole: "Doctor / Nurse", doctorDesc: "Scan patients & manage beds",
+    username: "Username", password: "Password",
+    enterUsername: "Enter username", enterPassword: "Enter password",
+    loginBtn: "🔓 Login", skipLogin: "Skip (Demo Mode)",
+    demoHint: "💡 Demo: Any username/password works",
+    bloodDonorTitle: "🩸 Blood Donor Network",
+    searchBloodGroup: "Search Blood Group", allBloodGroups: "All Blood Groups",
+    searchCity: "City / Area", maxDistance: "Max Distance (km)",
+    registerAsDonor: "🩸 Register as Blood Donor",
+    donorRegistered: "✅ Registered as donor!", donorExists: "Already registered",
+    noDonors: "😔 No donors match your search",
+    adminDashboard: "📊 Admin Dashboard", realTime: "REAL-TIME",
+    bedManagement: "🛏️ Bed & ICU Management",
+    totalHospitals: "Hospitals", totalBeds: "Beds Available",
+    totalICU: "ICU Available", totalDonors: "Registered Donors",
+    settingsTitle: "⚙️ Settings", voiceAlerts: "🔊 Voice Alerts",
+    sosSound: "SOS Sound", sosSoundDesc: "Loud alarm when SOS triggered",
+    sosSpeech: "Voice Announcement", sosSpeechDesc: "Speaks emergency info aloud",
+    vibration: "Vibration", vibrationDesc: "Vibrate on alerts",
+    testVoice: "🔊 Test Voice Alert",
+    backendConfig: "☁️ Backend Config",
+    supabaseUrl: "Supabase URL (Optional)", supabaseKey: "Supabase Anon Key (Optional)",
+    saveBackend: "💾 Save Backend Config",
+    backendHint: "💡 Leave empty to use mock data. Add your own Supabase project for real data.",
+    backendSaved: "✅ Backend config saved",
+    sosTriggered: "🚨 SOS ALERT SENT!",
+    sosVoiceText: "Emergency! Emergency! SOS activated at LifeLink. Please send help immediately.",
+    insuranceTitle: "🏥 Health Insurance",
+    insuranceHint: "💡 Add insurance details for faster cashless admission in emergencies",
+    insuranceProvider: "Insurance Provider",
+    selectProvider: "Select Provider",
+    policyNumber: "Policy Number",
+    sumInsured: "Sum Insured (₹)",
+    validTill: "Valid Till",
+    cashless: "Cashless Facility",
+    yesOption: "Yes",
+    notSure: "Not sure",
+    tpaHelpline: "TPA / Insurance Helpline",
+    insNotes: "Insurance Notes (Optional)",
+    insuranceLabel: "Insurance",
+    insuranceEmpty: "No insurance registered yet.",
+    insuranceEmptyHint: "Register a patient with insurance details to see them here.",
+    insuranceHelp: "💡 Insurance Help & Emergency Numbers",
+    verifyInsurance: "✅ Verify Insurance",
+    noInsurance: "No insurance on file",
+    emergencyNum: "🚨 Emergency", ayushman: "🏥 Ayushman Bharat",
+    irdai: "🛡️ IRDAI", cmchis: "💊 CMCHIS (TN)"
+  },
+  ta: {
+    chooseLang: "🌐 உங்கள் மொழியை தேர்ந்தெடுங்கள்",
+    selectLang: "உங்கள் விருப்ப மொழியை தேர்ந்தெடுங்கள்",
+    tagline: "முழுமையான அவசர சிகிச்சை நெட்வொர்க்",
+    tabRegister: "📝 பதிவு", tabEmergency: "🚨 அவசரம்",
+    tabHospitals: "🏥 மருத்துவமனைகள்", tabInsurance: "🏥 காப்பீடு",
+    tabScanner: "👨‍⚕️ ஸ்கேனர்", tabBlood: "🩸 இரத்த தானம்",
+    tabAdmin: "📊 நிர்வாகம்", tabSettings: "⚙️ அமைப்புகள்",
+    regTitle: "👤 நோயாளி பதிவு",
+    fullName: "முழு பெயர் *", bloodGroup: "இரத்த பிரிவு *", age: "வயது", gender: "பாலினம்",
+    select: "தேர்ந்தெடு", male: "ஆண்", female: "பெண்", other: "மற்றவை",
+    allergies: "💊 ஒவ்வாமை (முக்கியம்)", conditions: "🏥 மருத்துவ நிலைகள்",
+    medicines: "💉 தற்போதைய மருந்துகள்", organDonor: "🫀 உறுப்பு தானம்",
+    preferNot: "சொல்ல விருப்பமில்லை", organYes: "ஆம் — உறுப்பு தானம் செய்கிறேன்", no: "இல்லை",
+    contactsTitle: "👨‍👩‍👧 குடும்பம் / அவசர தொடர்புகள்",
+    contact1Name: "தொடர்பு 1 — பெயர்", contact1Rel: "தொடர்பு 1 — உறவு", contact1Phone: "தொடர்பு 1 — தொலைபேசி",
+    contact2Name: "தொடர்பு 2 — பெயர்", contact2Rel: "தொடர்பு 2 — உறவு", contact2Phone: "தொடர்பு 2 — தொலைபேசி",
+    generateQR: "🔗 LifeLink QR உருவாக்கு",
+    qrReady: "✅ உங்கள் LifeLink தயார்!",
+    qrHint: "📱 இந்த QR-ஐ அச்சிடுங்கள். அவசரத்தில் மருத்துவரிடம் காட்டுங்கள்.",
+    lifelinkID: "❤️ LIFELINK ID", bloodGroupLabel: "இரத்த பிரிவு",
+    allergiesLabel: "ஒவ்வாமை", conditionsLabel: "நிலைகள்",
+    emergency1Label: "அவசரம் 1", emergency2Label: "அவசரம் 2",
+    downloadQR: "⬇️ QR பதிவிறக்கம்", demoScan: "🎬 டெமோ: ஸ்கேனர்",
+    emergencyInfo: "🚨 அவசர மருத்துவ தகவல்",
+    showResponders: "மருத்துவ உதவியாளர்களிடம் உடனே காட்டுங்கள்",
+    medicinesLabel: "மருந்துகள்", emergencyContacts: "📞 அவசர தொடர்புகள்",
+    findHospitals: "🏥 அருகிலுள்ள மருத்துவமனைகள்",
+    liveNetwork: "🗺️ நேரடி மருத்துவமனை நெட்வொர்க்", liveData: "நேரடி தரவு",
+    nearest: "அருகில்", filterAll: "அனைத்தும்", filterICU: "🛏️ ICU",
+    filterBlood: "🩸 இரத்த பொருத்தம்", filterTrauma: "🚑 டிராமா", myLocation: "📍 என் இருப்பிடம்",
+    legendReady: "தயார்", legendLimited: "குறைவு", legendFull: "நிரம்பியது", legendYou: "நீங்கள்",
+    loadingHospitals: "மருத்துவமனைகள் ஏற்றப்படுகிறது...",
+    scannerTitle: "👨‍⚕️ மருத்துவர் / செவிலியர் ஸ்கேனர்",
+    scanPatientQR: "நோயாளி QR ஸ்கேன்",
+    scannerDesc: "நோயாளியின் LifeLink QR-ஐ கேமராவில் காட்டுங்கள்.",
+    openCamera: "கேமரா திற", orText: "— அல்லது —",
+    pasteURL: "🔗 QR URL / நோயாளி ID ஒட்டு", analyzePatient: "🔍 பரிசோதி",
+    qrGenerated: "✅ LifeLink QR உருவாக்கப்பட்டது!",
+    qrDownloaded: "⬇️ QR பதிவிறக்கம் ஆனது!",
+    qrFailed: "❌ QR உருவாக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+    cameraOpening: "📷 கேமரா திறக்கிறது...",
+    cameraDenied: "❌ கேமரா அனுமதி மறுக்கப்பட்டது",
+    pasteWarning: "⚠️ QR URL ஒட்டுங்கள்",
+    patientLoaded: "✅ நோயாளி தரவு ஏற்றப்பட்டது",
+    invalidQR: "❌ தவறான QR", couldNotRead: "❌ QR படிக்க முடியவில்லை",
+    noHospitals: "😔 மருத்துவமனை இல்லை",
+    alerts: "எச்சரிக்கைகள்", close: "✕ மூடு",
+    recommendedHospital: "🏥 பரிந்துரைக்கப்பட்ட மருத்துவமனை",
+    bloodNetwork: "🩸 இரத்த நெட்வொர்க்",
+    nearbyBloodBanks: "அருகிலுள்ள இரத்த வங்கிகள்",
+    callHospital: "📞 அழை", navigate: "🧭 வழிகாட்டு", call: "📞 அழை",
+    ambulanceDispatched: "🚑 108 ஆம்புலன்ஸ் அனுப்பப்பட்டது",
+    vehicle: "வாகனம்", driver: "ஓட்டுநர்", contact: "தொடர்பு",
+    enRoute: "🚦 பிக்கப் நோக்கி", almostArrived: "✅ வந்துவிட்டது",
+    twoMinAway: "🚦 2 நிமிடம்", arrivedPatient: "✅ சேர்ந்தது",
+    alertFamily: "📲 குடும்பத்திற்கு", dispatchAmbulance: "🚑 ஆம்புலன்ஸ்",
+    printReport: "🖨️ அச்சிடு",
+    familyNotified: "📲 எச்சரிக்கை", ambulanceOnWay: "🚑 108 ஆம்புலன்ஸ்!",
+    livePatientData: "நேரடி நோயாளி தரவு",
+    criticalAllergyAlert: "முக்கிய ஒவ்வாமை எச்சரிக்கை",
+    units: "யூனிட்", kmAway: "கி.மீ",
+    bedsFree: "🛏️ படுக்கை", icuFree: "🚑 ICU", bloodMatch: "🩸 பொருத்தம்",
+    yes: "ஆம் ✓", noMatch: "இல்லை ✗",
+    dark: "🌙 இருள்", light: "☀️ வெளிச்சம்",
+    openHospitalsFirst: "💡 முதலில் மருத்துவமனை திற",
+    install: "நிறுவு", login: "உள்நுழை",
+    loginTitle: "🔐 LifeLink உள்நுழைவு",
+    loginSubtitle: "உங்கள் பங்கை தேர்ந்தெடுங்கள்",
+    patientRole: "நோயாளி", patientDesc: "பதிவு & நிர்வாகம்",
+    doctorRole: "மருத்துவர்", doctorDesc: "ஸ்கேன் & படுக்கை",
+    username: "பயனர் பெயர்", password: "கடவுச்சொல்",
+    enterUsername: "பயனர் பெயரை உள்ளிடுங்கள்", enterPassword: "கடவுச்சொல்லை உள்ளிடுங்கள்",
+    loginBtn: "🔓 உள்நுழை", skipLogin: "தவிர் (டெமோ)",
+    demoHint: "💡 டெமோ: எந்த பயனர் பெயரும் வேலை செய்யும்",
+    bloodDonorTitle: "🩸 இரத்த தான நெட்வொர்க்",
+    searchBloodGroup: "இரத்த பிரிவு", allBloodGroups: "அனைத்து பிரிவுகள்",
+    searchCity: "நகரம்", maxDistance: "அதிகபட்ச தூரம் (கி.மீ)",
+    registerAsDonor: "🩸 தானமாக பதிவு செய்",
+    donorRegistered: "✅ பதிவு ஆனது!", donorExists: "ஏற்கனவே பதிவு",
+    noDonors: "😔 தானம் இல்லை",
+    adminDashboard: "📊 நிர்வாக டாஷ்போர்டு", realTime: "நேரடி",
+    bedManagement: "🛏️ படுக்கை மேலாண்மை",
+    totalHospitals: "மருத்துவமனைகள்", totalBeds: "படுக்கைகள்",
+    totalICU: "ICU", totalDonors: "தானம்",
+    settingsTitle: "⚙️ அமைப்புகள்", voiceAlerts: "🔊 குரல் எச்சரிக்கை",
+    sosSound: "SOS ஒலி", sosSoundDesc: "SOS அழுத்தும்போது சத்தம்",
+    sosSpeech: "குரல் அறிவிப்பு", sosSpeechDesc: "தகவலை பேசும்",
+    vibration: "அதிர்வு", vibrationDesc: "எச்சரிக்கையில் அதிர்வு",
+    testVoice: "🔊 குரல் சோதனை",
+    backendConfig: "☁️ பின்தள அமைப்பு",
+    supabaseUrl: "Supabase URL", supabaseKey: "Supabase Key",
+    saveBackend: "💾 சேமி",
+    backendHint: "💡 காலியாக விட்டால் mock data",
+    backendSaved: "✅ சேமிக்கப்பட்டது",
+    sosTriggered: "🚨 SOS எச்சரிக்கை!",
+    sosVoiceText: "அவசரம்! அவசரம்! LifeLink இல் SOS செயல்படுத்தப்பட்டது. உதவி அனுப்புங்கள்.",
+    insuranceTitle: "🏥 மருத்துவ காப்பீடு",
+    insuranceHint: "💡 அவசரத்தில் விரைவான சிகிச்சைக்கு காப்பீட்டு விவரங்களைச் சேர்க்கவும்",
+    insuranceProvider: "காப்பீட்டு நிறுவனம்",
+    selectProvider: "நிறுவனத்தை தேர்ந்தெடு",
+    policyNumber: "பாலிசி எண்",
+    sumInsured: "காப்பீட்டு தொகை (₹)",
+    validTill: "செல்லுபடியாகும் வரை",
+    cashless: "பணமில்லா வசதி",
+    yesOption: "ஆம்",
+    notSure: "உறுதியாக தெரியவில்லை",
+    tpaHelpline: "TPA / காப்பீட்டு உதவி எண்",
+    insNotes: "காப்பீட்டு குறிப்புகள் (விருப்பம்)",
+    insuranceLabel: "காப்பீடு",
+    insuranceEmpty: "இன்னும் காப்பீடு பதிவு செய்யப்படவில்லை.",
+    insuranceEmptyHint: "காப்பீட்டு விவரங்களுடன் நோயாளியை பதிவு செய்யுங்கள்.",
+    insuranceHelp: "💡 காப்பீட்டு உதவி & அவசர எண்கள்",
+    verifyInsurance: "✅ காப்பீட்டை சரிபார்",
+    noInsurance: "காப்பீடு இல்லை",
+    emergencyNum: "🚨 அவசரம்", ayushman: "🏥 ஆயுஷ்மான் பாரத்",
+    irdai: "🛡️ IRDAI", cmchis: "💊 CMCHIS (தமிழ்நாடு)"
+  },
+  hi: {
+    chooseLang: "🌐 अपनी भाषा चुनें",
+    selectLang: "अपनी पसंदीदा भाषा चुनें",
+    tagline: "पूर्ण आपातकालीन प्रतिक्रिया नेटवर्क",
+    tabRegister: "📝 पंजीकरण", tabEmergency: "🚨 आपातकाल",
+    tabHospitals: "🏥 अस्पताल", tabInsurance: "🏥 बीमा",
+    tabScanner: "👨‍⚕️ स्कैनर", tabBlood: "🩸 रक्तदान",
+    tabAdmin: "📊 एडमिन", tabSettings: "⚙️ सेटिंग्स",
+    regTitle: "👤 रोगी पंजीकरण",
+    fullName: "पूरा नाम *", bloodGroup: "रक्त समूह *", age: "उम्र", gender: "लिंग",
+    select: "चुनें", male: "पुरुष", female: "महिला", other: "अन्य",
+    allergies: "💊 एलर्जी (महत्वपूर्ण)", conditions: "🏥 चिकित्सीय स्थितियाँ",
+    medicines: "💉 वर्तमान दवाएं", organDonor: "🫀 अंग दान",
+    preferNot: "नहीं बताना", organYes: "हाँ — मैं अंग दाता हूँ", no: "नहीं",
+    contactsTitle: "👨‍👩‍👧 परिवार / आपातकालीन संपर्क",
+    contact1Name: "संपर्क 1 — नाम", contact1Rel: "संपर्क 1 — संबंध", contact1Phone: "संपर्क 1 — फोन",
+    contact2Name: "संपर्क 2 — नाम", contact2Rel: "संपर्क 2 — संबंध", contact2Phone: "संपर्क 2 — फोन",
+    generateQR: "🔗 LifeLink QR बनाएं",
+    qrReady: "✅ आपका LifeLink तैयार है!",
+    qrHint: "📱 इस QR को प्रिंट या सेव करें। आपातकाल में डॉक्टर को दिखाएं।",
+    lifelinkID: "❤️ LIFELINK ID", bloodGroupLabel: "रक्त समूह",
+    allergiesLabel: "एलर्जी", conditionsLabel: "स्थितियाँ",
+    emergency1Label: "आपातकाल 1", emergency2Label: "आपातकाल 2",
+    downloadQR: "⬇️ QR डाउनलोड", demoScan: "🎬 डेमो: स्कैनर",
+    emergencyInfo: "🚨 आपातकालीन चिकित्सा जानकारी",
+    showResponders: "चिकित्सा सहायकों को तुरंत दिखाएं",
+    medicinesLabel: "दवाएं", emergencyContacts: "📞 आपातकालीन संपर्क",
+    findHospitals: "🏥 आसपास के अस्पताल खोजें",
+    liveNetwork: "🗺️ लाइव अस्पताल नेटवर्क", liveData: "लाइव डेटा",
+    nearest: "निकटतम", filterAll: "सभी", filterICU: "🛏️ ICU",
+    filterBlood: "🩸 रक्त मिलान", filterTrauma: "🚑 ट्रॉमा", myLocation: "📍 मेरा स्थान",
+    legendReady: "तैयार", legendLimited: "सीमित", legendFull: "भरा", legendYou: "आप",
+    loadingHospitals: "अस्पताल लोड हो रहे हैं...",
+    scannerTitle: "👨‍⚕️ डॉक्टर / नर्स स्कैनर",
+    scanPatientQR: "रोगी QR स्कैन करें",
+    scannerDesc: "रोगी का LifeLink QR कैमरे में दिखाएं।",
+    openCamera: "कैमरा खोलें", orText: "— या —",
+    pasteURL: "🔗 QR URL / रोगी ID पेस्ट करें", analyzePatient: "🔍 रोगी का विश्लेषण",
+    qrGenerated: "✅ LifeLink QR बनाया गया!",
+    qrDownloaded: "⬇️ QR डाउनलोड हुआ!",
+    qrFailed: "❌ QR बनाने में विफल। पुनः प्रयास करें।",
+    cameraOpening: "📷 कैमरा खुल रहा है...",
+    cameraDenied: "❌ कैमरा अनुमति अस्वीकृत",
+    pasteWarning: "⚠️ QR URL पेस्ट करें",
+    patientLoaded: "✅ रोगी डेटा लोड हुआ",
+    invalidQR: "❌ अमान्य QR", couldNotRead: "❌ QR पढ़ा नहीं जा सका",
+    noHospitals: "😔 कोई अस्पताल नहीं मिला",
+    alerts: "अलर्ट", close: "✕ बंद करें",
+    recommendedHospital: "🏥 इस रोगी के लिए अनुशंसित अस्पताल",
+    bloodNetwork: "🩸 रक्त उपलब्धता नेटवर्क",
+    nearbyBloodBanks: "आसपास के रक्त बैंक",
+    callHospital: "📞 अस्पताल कॉल करें", navigate: "🧭 नेविगेट", call: "📞 कॉल",
+    ambulanceDispatched: "🚑 108 एम्बुलेंस भेजी गई",
+    vehicle: "वाहन", driver: "चालक", contact: "संपर्क",
+    enRoute: "🚦 रास्ते में", almostArrived: "✅ लगभग पहुंच गया",
+    twoMinAway: "🚦 2 मिनट दूर", arrivedPatient: "✅ रोगी के पास पहुंचा",
+    alertFamily: "📲 परिवार को सूचित करें", dispatchAmbulance: "🚑 एम्बुलेंस भेजें",
+    printReport: "🖨️ रिपोर्ट प्रिंट करें",
+    familyNotified: "📲 अलर्ट भेजा", ambulanceOnWay: "🚑 108 एम्बुलेंस भेजी!",
+    livePatientData: "लाइव रोगी डेटा",
+    criticalAllergyAlert: "गंभीर एलर्जी अलर्ट",
+    units: "यूनिट", kmAway: "किमी दूर",
+    bedsFree: "🛏️ बेड", icuFree: "🚑 ICU", bloodMatch: "🩸 रक्त मिलान",
+    yes: "हाँ ✓", noMatch: "नहीं ✗",
+    dark: "🌙 डार्क", light: "☀️ लाइट",
+    openHospitalsFirst: "💡 पहले अस्पताल टैब खोलें",
+    install: "इंस्टॉल करें", login: "लॉगिन",
+    loginTitle: "🔐 LifeLink लॉगिन",
+    loginSubtitle: "जारी रखने के लिए अपनी भूमिका चुनें",
+    patientRole: "रोगी", patientDesc: "पंजीकरण और स्वास्थ्य प्रबंधन",
+    doctorRole: "डॉक्टर / नर्स", doctorDesc: "रोगी स्कैन और बेड प्रबंधन",
+    username: "उपयोगकर्ता नाम", password: "पासवर्ड",
+    enterUsername: "उपयोगकर्ता नाम दर्ज करें", enterPassword: "पासवर्ड दर्ज करें",
+    loginBtn: "🔓 लॉगिन", skipLogin: "छोड़ें (डेमो मोड)",
+    demoHint: "💡 डेमो: कोई भी उपयोगकर्ता/पासवर्ड काम करेगा",
+    bloodDonorTitle: "🩸 रक्तदान नेटवर्क",
+    searchBloodGroup: "रक्त समूह खोजें", allBloodGroups: "सभी रक्त समूह",
+    searchCity: "शहर / क्षेत्र", maxDistance: "अधिकतम दूरी (किमी)",
+    registerAsDonor: "🩸 रक्तदाता के रूप में पंजीकरण",
+    donorRegistered: "✅ दाता के रूप में पंजीकृत!", donorExists: "पहले से पंजीकृत",
+    noDonors: "😔 कोई दाता नहीं मिला",
+    adminDashboard: "📊 एडमिन डैशबोर्ड", realTime: "रीयल-टाइम",
+    bedManagement: "🛏️ बेड और ICU प्रबंधन",
+    totalHospitals: "अस्पताल", totalBeds: "उपलब्ध बेड",
+    totalICU: "उपलब्ध ICU", totalDonors: "पंजीकृत दाता",
+    settingsTitle: "⚙️ सेटिंग्स", voiceAlerts: "🔊 वॉइस अलर्ट",
+    sosSound: "SOS ध्वनि", sosSoundDesc: "SOS पर तेज़ अलार्म",
+    sosSpeech: "वॉइस घोषणा", sosSpeechDesc: "आपातकालीन जानकारी बोलता है",
+    vibration: "कंपन", vibrationDesc: "अलर्ट पर कंपन",
+    testVoice: "🔊 वॉइस अलर्ट टेस्ट करें",
+    backendConfig: "☁️ बैकएंड कॉन्फ़िग",
+    supabaseUrl: "Supabase URL (वैकल्पिक)", supabaseKey: "Supabase Key (वैकल्पिक)",
+    saveBackend: "💾 बैकएंड सेव करें",
+    backendHint: "💡 mock data के लिए खाली छोड़ें",
+    backendSaved: "✅ बैकएंड सेव हुआ",
+    sosTriggered: "🚨 SOS अलर्ट भेजा!",
+    sosVoiceText: "आपातकाल! आपातकाल! LifeLink में SOS सक्रिय। कृपया मदद भेजें।",
+    insuranceTitle: "🏥 स्वास्थ्य बीमा",
+    insuranceHint: "💡 आपातकाल में तेज़ कैशलेस भर्ती के लिए बीमा विवरण जोड़ें",
+    insuranceProvider: "बीमा प्रदाता",
+    selectProvider: "प्रदाता चुनें",
+    policyNumber: "पॉलिसी नंबर",
+    sumInsured: "बीमित राशि (₹)",
+    validTill: "वैध तक",
+    cashless: "कैशलेस सुविधा",
+    yesOption: "हाँ",
+    notSure: "पता नहीं",
+    tpaHelpline: "TPA / बीमा हेल्पलाइन",
+    insNotes: "बीमा नोट्स (वैकल्पिक)",
+    insuranceLabel: "बीमा",
+    insuranceEmpty: "अभी तक कोई बीमा पंजीकृत नहीं।",
+    insuranceEmptyHint: "बीमा विवरण के साथ रोगी पंजीकृत करें।",
+    insuranceHelp: "💡 बीमा सहायता और आपातकालीन नंबर",
+    verifyInsurance: "✅ बीमा सत्यापित करें",
+    noInsurance: "कोई बीमा नहीं",
+    emergencyNum: "🚨 आपातकाल", ayushman: "🏥 आयुष्मान भारत",
+    irdai: "🛡️ IRDAI", cmchis: "💊 CMCHIS (TN)"
+  },
+  te: {
+    chooseLang: "🌐 మీ భాషను ఎంచుకోండి",
+    selectLang: "మీ ఇష్టమైన భాషను ఎంచుకోండి",
+    tagline: "పూర్తి అత్యవసర ప్రతిస్పందన నెట్‌వర్క్",
+    tabRegister: "📝 నమోదు", tabEmergency: "🚨 అత్యవసరం",
+    tabHospitals: "🏥 ఆసుపత్రులు", tabInsurance: "🏥 బీమా",
+    tabScanner: "👨‍⚕️ స్కానర్", tabBlood: "🩸 రక్తదానం",
+    tabAdmin: "📊 అడ్మిన్", tabSettings: "⚙️ సెట్టింగ్‌లు",
+    regTitle: "👤 రోగి నమోదు",
+    fullName: "పూర్తి పేరు *", bloodGroup: "రక్త వర్గం *", age: "వయస్సు", gender: "లింగం",
+    select: "ఎంచుకోండి", male: "పురుషుడు", female: "స్త్రీ", other: "ఇతర",
+    allergies: "💊 అలర్జీలు (క్లిష్టమైన)", conditions: "🏥 వైద్య పరిస్థితులు",
+    medicines: "💉 ప్రస్తుత మందులు", organDonor: "🫀 అవయవ దానం",
+    preferNot: "చెప్పడం లేదు", organYes: "అవును — నేను దాతను", no: "కాదు",
+    contactsTitle: "👨‍👩‍👧 కుటుంబం / అత్యవసర పరిచయాలు",
+    contact1Name: "పరిచయం 1 — పేరు", contact1Rel: "పరిచయం 1 — సంబంధం", contact1Phone: "పరిచయం 1 — ఫోన్",
+    contact2Name: "పరిచయం 2 — పేరు", contact2Rel: "పరిచయం 2 — సంబంధం", contact2Phone: "పరిచయం 2 — ఫోన్",
+    generateQR: "🔗 LifeLink QR సృష్టించు",
+    qrReady: "✅ మీ LifeLink సిద్ధం!",
+    qrHint: "📱 ఈ QR ను ప్రింట్ చేయండి. అత్యవసరంలో డాక్టర్‌కు చూపించండి.",
+    lifelinkID: "❤️ LIFELINK ID", bloodGroupLabel: "రక్త వర్గం",
+    allergiesLabel: "అలర్జీలు", conditionsLabel: "పరిస్థితులు",
+    emergency1Label: "అత్యవసరం 1", emergency2Label: "అత్యవసరం 2",
+    downloadQR: "⬇️ QR డౌన్‌లోడ్", demoScan: "🎬 డెమో: స్కానర్",
+    emergencyInfo: "🚨 అత్యవసర వైద్య సమాచారం",
+    showResponders: "వైద్య సహాయకులకు వెంటనే చూపించండి",
+    medicinesLabel: "మందులు", emergencyContacts: "📞 అత్యవసర పరిచయాలు",
+    findHospitals: "🏥 సమీప ఆసుపత్రులు కనుగొనండి",
+    liveNetwork: "🗺️ లైవ్ ఆసుపత్రి నెట్‌వర్క్", liveData: "లైవ్ డేటా",
+    nearest: "సమీపంలో", filterAll: "అన్నీ", filterICU: "🛏️ ICU",
+    filterBlood: "🩸 రక్త సరిపోలిక", filterTrauma: "🚑 ట్రామా", myLocation: "📍 నా స్థానం",
+    legendReady: "సిద్ధం", legendLimited: "పరిమితం", legendFull: "నిండింది", legendYou: "మీరు",
+    loadingHospitals: "ఆసుపత్రులు లోడ్ అవుతున్నాయి...",
+    scannerTitle: "👨‍⚕️ డాక్టర్ / నర్స్ స్కానర్",
+    scanPatientQR: "రోగి QR స్కాన్ చేయండి",
+    scannerDesc: "రోగి LifeLink QR ను కెమెరాలో చూపించండి.",
+    openCamera: "కెమెరా తెరవండి", orText: "— లేదా —",
+    pasteURL: "🔗 QR URL / రోగి ID పేస్ట్ చేయండి", analyzePatient: "🔍 రోగి విశ్లేషణ",
+    qrGenerated: "✅ LifeLink QR సృష్టించబడింది!",
+    qrDownloaded: "⬇️ QR డౌన్‌లోడ్ అయింది!",
+    qrFailed: "❌ QR సృష్టించడం విఫలమైంది. మళ్ళీ ప్రయత్నించండి.",
+    cameraOpening: "📷 కెమెరా తెరుచుకుంటోంది...",
+    cameraDenied: "❌ కెమెరా అనుమతి నిరాకరించబడింది",
+    pasteWarning: "⚠️ QR URL పేస్ట్ చేయండి",
+    patientLoaded: "✅ రోగి డేటా లోడ్ అయింది",
+    invalidQR: "❌ చెల్లని QR", couldNotRead: "❌ QR చదవలేకపోయాం",
+    noHospitals: "😔 ఆసుపత్రులు కనుగొనబడలేదు",
+    alerts: "హెచ్చరికలు", close: "✕ మూసివేయి",
+    recommendedHospital: "🏥 ఈ రోగికి సిఫార్సు చేసిన ఆసుపత్రి",
+    bloodNetwork: "🩸 రక్త లభ్యత నెట్‌వర్క్",
+    nearbyBloodBanks: "సమీప రక్త బ్యాంకులు",
+    callHospital: "📞 ఆసుపత్రికి కాల్", navigate: "🧭 నావిగేట్", call: "📞 కాల్",
+    ambulanceDispatched: "🚑 108 అంబులెన్స్ పంపబడింది",
+    vehicle: "వాహనం", driver: "డ్రైవర్", contact: "పరిచయం",
+    enRoute: "🚦 పికప్ వైపు", almostArrived: "✅ దాదాపు చేరింది",
+    twoMinAway: "🚦 2 నిమిషాలు", arrivedPatient: "✅ రోగి వద్దకు చేరింది",
+    alertFamily: "📲 కుటుంబానికి తెలియజేయి", dispatchAmbulance: "🚑 అంబులెన్స్ పంపు",
+    printReport: "🖨️ నివేదిక ప్రింట్",
+    familyNotified: "📲 హెచ్చరిక పంపబడింది", ambulanceOnWay: "🚑 108 అంబులెన్స్!",
+    livePatientData: "లైవ్ రోగి డేటా",
+    criticalAllergyAlert: "క్లిష్ట అలర్జీ హెచ్చరిక",
+    units: "యూనిట్లు", kmAway: "కి.మీ దూరం",
+    bedsFree: "🛏️ పడకలు", icuFree: "🚑 ICU", bloodMatch: "🩸 రక్త సరిపోలిక",
+    yes: "అవును ✓", noMatch: "కాదు ✗",
+    dark: "🌙 డార్క్", light: "☀️ లైట్",
+    openHospitalsFirst: "💡 మొదట ఆసుపత్రి ట్యాబ్ తెరవండి",
+    install: "ఇన్‌స్టాల్", login: "లాగిన్",
+    loginTitle: "🔐 LifeLink లాగిన్",
+    loginSubtitle: "కొనసాగించడానికి మీ పాత్రను ఎంచుకోండి",
+    patientRole: "రోగి", patientDesc: "నమోదు & ఆరోగ్య నిర్వహణ",
+    doctorRole: "డాక్టర్ / నర్స్", doctorDesc: "స్కాన్ & పడక నిర్వహణ",
+    username: "వినియోగదారు పేరు", password: "పాస్‌వర్డ్",
+    enterUsername: "వినియోగదారు పేరు నమోదు చేయండి", enterPassword: "పాస్‌వర్డ్ నమోదు చేయండి",
+    loginBtn: "🔓 లాగిన్", skipLogin: "దాటవేయి (డెమో)",
+    demoHint: "💡 డెమో: ఏ వినియోగదారు/పాస్‌వర్డ్ పని చేస్తుంది",
+    bloodDonorTitle: "🩸 రక్తదాన నెట్‌వర్క్",
+    searchBloodGroup: "రక్త వర్గం వెతకండి", allBloodGroups: "అన్ని రక్త వర్గాలు",
+    searchCity: "నగరం / ప్రాంతం", maxDistance: "గరిష్ఠ దూరం (కి.మీ)",
+    registerAsDonor: "🩸 రక్తదాతగా నమోదు",
+    donorRegistered: "✅ దాతగా నమోదు!", donorExists: "ఇప్పటికే నమోదు",
+    noDonors: "😔 దాతలు కనుగొనబడలేదు",
+    adminDashboard: "📊 అడ్మిన్ డాష్‌బోర్డ్", realTime: "రియల్-టైమ్",
+    bedManagement: "🛏️ పడక & ICU నిర్వహణ",
+    totalHospitals: "ఆసుపత్రులు", totalBeds: "పడకలు",
+    totalICU: "ICU", totalDonors: "దాతలు",
+    settingsTitle: "⚙️ సెట్టింగ్‌లు", voiceAlerts: "🔊 వాయిస్ హెచ్చరికలు",
+    sosSound: "SOS ధ్వని", sosSoundDesc: "SOS ట్రిగ్గర్ అయినప్పుడు పెద్ద శబ్దం",
+    sosSpeech: "వాయిస్ ప్రకటన", sosSpeechDesc: "అత్యవసర సమాచారాన్ని బిగ్గరగా చెబుతుంది",
+    vibration: "వైబ్రేషన్", vibrationDesc: "హెచ్చరికలపై వైబ్రేట్",
+    testVoice: "🔊 వాయిస్ హెచ్చరిక పరీక్ష",
+    backendConfig: "☁️ బ్యాకెండ్ కాన్ఫిగ్",
+    supabaseUrl: "Supabase URL (ఐచ్ఛికం)", supabaseKey: "Supabase Key (ఐచ్ఛికం)",
+    saveBackend: "💾 బ్యాకెండ్ సేవ్",
+    backendHint: "💡 mock data కోసం ఖాళీగా వదిలేయండి",
+    backendSaved: "✅ బ్యాకెండ్ సేవ్ అయింది",
+    sosTriggered: "🚨 SOS హెచ్చరిక పంపబడింది!",
+    sosVoiceText: "అత్యవసరం! అత్యవసరం! LifeLink లో SOS సక్రియం. సహాయం పంపండి.",
+    insuranceTitle: "🏥 ఆరోగ్య బీమా",
+    insuranceHint: "💡 అత్యవసరంలో వేగవంతమైన క్యాష్‌లెస్ చేరిక కోసం బీమా వివరాలు జోడించండి",
+    insuranceProvider: "బీమా ప్రొవైడర్",
+    selectProvider: "ప్రొవైడర్ ఎంచుకోండి",
+    policyNumber: "పాలసీ నంబర్",
+    sumInsured: "బీమా మొత్తం (₹)",
+    validTill: "చెల్లుబాటు వరకు",
+    cashless: "క్యాష్‌లెస్ సౌకర్యం",
+    yesOption: "అవును",
+    notSure: "తెలియదు",
+    tpaHelpline: "TPA / బీమా హెల్ప్‌లైన్",
+    insNotes: "బీమా నోట్స్ (ఐచ్ఛికం)",
+    insuranceLabel: "బీమా",
+    insuranceEmpty: "ఇంకా బీమా నమోదు కాలేదు.",
+    insuranceEmptyHint: "బీమా వివరాలతో రోగిని నమోదు చేయండి.",
+    insuranceHelp: "💡 బీమా సహాయం & అత్యవసర నంబర్లు",
+    verifyInsurance: "✅ బీమా ధృవీకరించు",
+    noInsurance: "బీమా లేదు",
+    emergencyNum: "🚨 అత్యవసరం", ayushman: "🏥 ఆయుష్మాన్ భారత్",
+    irdai: "🛡️ IRDAI", cmchis: "💊 CMCHIS (TN)"
+  },
+  ml: {
+    chooseLang: "🌐 നിങ്ങളുടെ ഭാഷ തിരഞ്ഞെടുക്കുക",
+    selectLang: "നിങ്ങളുടെ ഇഷ്ട ഭാഷ തിരഞ്ഞെടുക്കുക",
+    tagline: "സമ്പൂർണ്ണ അടിയന്തര പ്രതികരണ നെറ്റ്വർക്ക്",
+    tabRegister: "📝 രജിസ്റ്റർ", tabEmergency: "🚨 അടിയന്തരം",
+    tabHospitals: "🏥 ആശുപത്രികൾ", tabInsurance: "🏥 ഇൻഷുറൻസ്",
+    tabScanner: "👨‍⚕️ സ്കാനർ", tabBlood: "🩸 രക്തദാനം",
+    tabAdmin: "📊 അഡ്മിൻ", tabSettings: "⚙️ ക്രമീകരണങ്ങൾ",
+    regTitle: "👤 രോഗി രജിസ്ട്രേഷൻ",
+    fullName: "മുഴുവൻ പേര് *", bloodGroup: "രക്ത ഗ്രൂപ്പ് *", age: "പ്രായം", gender: "ലിംഗം",
+    select: "തിരഞ്ഞെടുക്കുക", male: "പുരുഷൻ", female: "സ്ത്രീ", other: "മറ്റുള്ളവ",
+    allergies: "💊 അലർജികൾ (ഗുരുതരം)", conditions: "🏥 വൈദ്യ അവസ്ഥകൾ",
+    medicines: "💉 നിലവിലെ മരുന്നുകൾ", organDonor: "🫀 അവയവ ദാനം",
+    preferNot: "പറയാൻ ആഗ്രഹിക്കുന്നില്ല", organYes: "അതെ — ഞാൻ ദാതാവാണ്", no: "ഇല്ല",
+    contactsTitle: "👨‍👩‍👧 കുടുംബം / അടിയന്തര കോൺടാക്റ്റുകൾ",
+    contact1Name: "കോൺടാക്റ്റ് 1 — പേര്", contact1Rel: "കോൺടാക്റ്റ് 1 — ബന്ധം", contact1Phone: "കോൺടാക്റ്റ് 1 — ഫോൺ",
+    contact2Name: "കോൺടാക്റ്റ് 2 — പേര്", contact2Rel: "കോൺടാക്റ്റ് 2 — ബന്ധം", contact2Phone: "കോൺടാക്റ്റ് 2 — ഫോൺ",
+    generateQR: "🔗 LifeLink QR സൃഷ്ടിക്കുക",
+    qrReady: "✅ നിങ്ങളുടെ LifeLink തയ്യാർ!",
+    qrHint: "📱 QR പ്രിന്റ് ചെയ്യുക. അടിയന്തരത്തിൽ ഡോക്ടറെ കാണിക്കുക.",
+    lifelinkID: "❤️ LIFELINK ID", bloodGroupLabel: "രക്ത ഗ്രൂപ്പ്",
+    allergiesLabel: "അലർജികൾ", conditionsLabel: "അവസ്ഥകൾ",
+    emergency1Label: "അടിയന്തരം 1", emergency2Label: "അടിയന്തരം 2",
+    downloadQR: "⬇️ QR ഡൗൺലോഡ്", demoScan: "🎬 ഡെമോ: സ്കാനർ",
+    emergencyInfo: "🚨 അടിയന്തര മെഡിക്കൽ വിവരം",
+    showResponders: "മെഡിക്കൽ സഹായികളെ ഉടൻ കാണിക്കുക",
+    medicinesLabel: "മരുന്നുകൾ", emergencyContacts: "📞 അടിയന്തര കോൺടാക്റ്റുകൾ",
+    findHospitals: "🏥 സമീപ ആശുപത്രികൾ കണ്ടെത്തുക",
+    liveNetwork: "🗺️ തത്സമയ ആശുപത്രി നെറ്റ്വർക്ക്", liveData: "തത്സമയ ഡാറ്റ",
+    nearest: "അടുത്തുള്ള", filterAll: "എല്ലാം", filterICU: "🛏️ ICU",
+    filterBlood: "🩸 രക്ത പൊരുത്തം", filterTrauma: "🚑 ട്രോമ", myLocation: "📍 എന്റെ സ്ഥാനം",
+    legendReady: "തയ്യാർ", legendLimited: "പരിമിതം", legendFull: "നിറഞ്ഞു", legendYou: "നിങ്ങൾ",
+    loadingHospitals: "ആശുപത്രികൾ ലോഡ് ചെയ്യുന്നു...",
+    scannerTitle: "👨‍⚕️ ഡോക്ടർ / നഴ്സ് സ്കാനർ",
+    scanPatientQR: "രോഗി QR സ്കാൻ ചെയ്യുക",
+    scannerDesc: "രോഗിയുടെ LifeLink QR ക്യാമറയിൽ കാണിക്കുക.",
+    openCamera: "ക്യാമറ തുറക്കുക", orText: "— അല്ലെങ്കിൽ —",
+    pasteURL: "🔗 QR URL / രോഗി ID ഒട്ടിക്കുക", analyzePatient: "🔍 രോഗി വിശകലനം",
+    qrGenerated: "✅ LifeLink QR സൃഷ്ടിച്ചു!",
+    qrDownloaded: "⬇️ QR ഡൗൺലോഡ്!",
+    qrFailed: "❌ QR സൃഷ്ടിക്കൽ പരാജയപ്പെട്ടു. വീണ്ടും ശ്രമിക്കുക.",
+    cameraOpening: "📷 ക്യാമറ തുറക്കുന്നു...",
+    cameraDenied: "❌ ക്യാമറ അനുമതി നിഷേധിച്ചു",
+    pasteWarning: "⚠️ QR URL ഒട്ടിക്കുക",
+    patientLoaded: "✅ രോഗി ഡാറ്റ ലോഡ് ചെയ്തു",
+    invalidQR: "❌ അസാധുവായ QR", couldNotRead: "❌ QR വായിക്കാൻ കഴിഞ്ഞില്ല",
+    noHospitals: "😔 ആശുപത്രികളില്ല",
+    alerts: "മുന്നറിയിപ്പുകൾ", close: "✕ അടയ്ക്കുക",
+    recommendedHospital: "🏥 ഈ രോഗിക്ക് ശുപാർശ ചെയ്യുന്ന ആശുപത്രി",
+    bloodNetwork: "🩸 രക്ത ലഭ്യത നെറ്റ്വർക്ക്",
+    nearbyBloodBanks: "സമീപ രക്ത ബാങ്കുകൾ",
+    callHospital: "📞 ആശുപത്രി വിളിക്കുക", navigate: "🧭 നാവിഗേറ്റ്", call: "📞 വിളിക്കുക",
+    ambulanceDispatched: "🚑 108 ആംബുലൻസ് അയച്ചു",
+    vehicle: "വാഹനം", driver: "ഡ്രൈവർ", contact: "കോൺടാക്റ്റ്",
+    enRoute: "🚦 പിക്കപ്പ് ലക്ഷ്യമിട്ട്", almostArrived: "✅ ഏകദേശം എത്തി",
+    twoMinAway: "🚦 2 മിനിറ്റ്", arrivedPatient: "✅ രോഗിയുടെ അടുത്ത് എത്തി",
+    alertFamily: "📲 കുടുംബത്തെ അറിയിക്കുക", dispatchAmbulance: "🚑 ആംബുലൻസ് അയക്കുക",
+    printReport: "🖨️ റിപ്പോർട്ട് പ്രിന്റ്",
+    familyNotified: "📲 മുന്നറിയിപ്പ് അയച്ചു", ambulanceOnWay: "🚑 108 ആംബുലൻസ്!",
+    livePatientData: "തത്സമയ രോഗി ഡാറ്റ",
+    criticalAllergyAlert: "ഗുരുതര അലർജി മുന്നറിയിപ്പ്",
+    units: "യൂണിറ്റ്", kmAway: "കി.മീ അകലെ",
+    bedsFree: "🛏️ കിടക്കകൾ", icuFree: "🚑 ICU", bloodMatch: "🩸 രക്ത പൊരുത്തം",
+    yes: "അതെ ✓", noMatch: "ഇല്ല ✗",
+    dark: "🌙 ഇരുട്ട്", light: "☀️ വെളിച്ചം",
+    openHospitalsFirst: "💡 ആദ്യം ആശുപത്രി ടാബ് തുറക്കുക",
+    install: "ഇൻസ്റ്റാൾ", login: "ലോഗിൻ",
+    loginTitle: "🔐 LifeLink ലോഗിൻ",
+    loginSubtitle: "തുടരാൻ നിങ്ങളുടെ റോൾ തിരഞ്ഞെടുക്കുക",
+    patientRole: "രോഗി", patientDesc: "രജിസ്റ്റർ & ആരോഗ്യ മാനേജ്മെന്റ്",
+    doctorRole: "ഡോക്ടർ / നഴ്സ്", doctorDesc: "സ്കാൻ & കിടക്ക മാനേജ്മെന്റ്",
+    username: "ഉപയോക്തൃനാമം", password: "പാസ്‌വേഡ്",
+    enterUsername: "ഉപയോക്തൃനാമം നൽകുക", enterPassword: "പാസ്‌വേഡ് നൽകുക",
+    loginBtn: "🔓 ലോഗിൻ", skipLogin: "ഒഴിവാക്കുക (ഡെമോ)",
+    demoHint: "💡 ഡെമോ: ഏത് ഉപയോക്താവും പ്രവർത്തിക്കും",
+    bloodDonorTitle: "🩸 രക്തദാന നെറ്റ്വർക്ക്",
+    searchBloodGroup: "രക്ത ഗ്രൂപ്പ് തിരയുക", allBloodGroups: "എല്ലാ രക്ത ഗ്രൂപ്പുകളും",
+    searchCity: "നഗരം / പ്രദേശം", maxDistance: "പരമാവധി ദൂരം (കി.മീ)",
+    registerAsDonor: "🩸 രക്തദാതാവായി രജിസ്റ്റർ",
+    donorRegistered: "✅ ദാതാവായി രജിസ്റ്റർ ചെയ്തു!", donorExists: "ഇതിനകം രജിസ്റ്റർ ചെയ്തു",
+    noDonors: "😔 ദാതാക്കളില്ല",
+    adminDashboard: "📊 അഡ്മിൻ ഡാഷ്ബോർഡ്", realTime: "തത്സമയം",
+    bedManagement: "🛏️ കിടക്ക & ICU മാനേജ്മെന്റ്",
+    totalHospitals: "ആശുപത്രികൾ", totalBeds: "കിടക്കകൾ",
+    totalICU: "ICU", totalDonors: "ദാതാക്കൾ",
+    settingsTitle: "⚙️ ക്രമീകരണങ്ങൾ", voiceAlerts: "🔊 വോയ്സ് അലേർട്ടുകൾ",
+    sosSound: "SOS ശബ്ദം", sosSoundDesc: "SOS ട്രിഗർ ചെയ്യുമ്പോൾ ഉച്ചത്തിൽ",
+    sosSpeech: "വോയ്സ് പ്രഖ്യാപനം", sosSpeechDesc: "അടിയന്തര വിവരങ്ങൾ ഉറക്കെ പറയും",
+    vibration: "വൈബ്രേഷൻ", vibrationDesc: "അലേർട്ടുകളിൽ വൈബ്രേറ്റ്",
+    testVoice: "🔊 വോയ്സ് അലേർട്ട് പരീക്ഷിക്കുക",
+    backendConfig: "☁️ ബാക്കെൻഡ് കോൺഫിഗ്",
+    supabaseUrl: "Supabase URL (ഓപ്ഷണൽ)", supabaseKey: "Supabase Key (ഓപ്ഷണൽ)",
+    saveBackend: "💾 ബാക്കെൻഡ് സേവ്",
+    backendHint: "💡 mock data ന് ശൂന്യമായി വിടുക",
+    backendSaved: "✅ ബാക്കെൻഡ് സേവ് ചെയ്തു",
+    sosTriggered: "🚨 SOS അലേർട്ട് അയച്ചു!",
+    sosVoiceText: "അടിയന്തരം! അടിയന്തരം! LifeLink ൽ SOS സജീവം. സഹായം അയക്കുക.",
+    insuranceTitle: "🏥 ആരോഗ്യ ഇൻഷുറൻസ്",
+    insuranceHint: "💡 അടിയന്തരത്തിൽ വേഗത്തിലുള്ള ക്യാഷ്‌ലെസ് പ്രവേശനത്തിന് ഇൻഷുറൻസ് വിവരങ്ങൾ ചേർക്കുക",
+    insuranceProvider: "ഇൻഷുറൻസ് ദാതാവ്",
+    selectProvider: "ദാതാവിനെ തിരഞ്ഞെടുക്കുക",
+    policyNumber: "പോളിസി നമ്പർ",
+    sumInsured: "ഇൻഷുർ ചെയ്ത തുക (₹)",
+    validTill: "സാധുവായ തീയതി വരെ",
+    cashless: "ക്യാഷ്‌ലെസ് സൗകര്യം",
+    yesOption: "അതെ",
+    notSure: "ഉറപ്പില്ല",
+    tpaHelpline: "TPA / ഇൻഷുറൻസ് ഹെൽപ്‌ലൈൻ",
+    insNotes: "ഇൻഷുറൻസ് കുറിപ്പുകൾ (ഓപ്ഷണൽ)",
+    insuranceLabel: "ഇൻഷുറൻസ്",
+    insuranceEmpty: "ഇതുവരെ ഇൻഷുറൻസ് രജിസ്റ്റർ ചെയ്തിട്ടില്ല.",
+    insuranceEmptyHint: "ഇൻഷുറൻസ് വിവരങ്ങളോടെ രോഗിയെ രജിസ്റ്റർ ചെയ്യുക.",
+    insuranceHelp: "💡 ഇൻഷുറൻസ് സഹായം & അടിയന്തര നമ്പറുകൾ",
+    verifyInsurance: "✅ ഇൻഷുറൻസ് പരിശോധിക്കുക",
+    noInsurance: "ഇൻഷുറൻസ് ഇല്ല",
+    emergencyNum: "🚨 അടിയന്തരം", ayushman: "🏥 ആയുഷ്മാൻ ഭാരത്",
+    irdai: "🛡️ IRDAI", cmchis: "💊 CMCHIS (TN)"
+  }
+};
+
+/* Fallback for kn, bn, mr - copy English */
+['kn','bn','mr'].forEach(lang => {
+  I18N[lang] = Object.assign({}, I18N.en);
+});
+
+const LANG_META = {
+  en: { flag: "🇬🇧", name: "English", native: "English" },
+  ta: { flag: "🇮🇳", name: "Tamil", native: "தமிழ்" },
+  ml: { flag: "🇮🇳", name: "Malayalam", native: "മലയാളം" },
+  hi: { flag: "🇮🇳", name: "Hindi", native: "हिन्दी" },
+  te: { flag: "🇮🇳", name: "Telugu", native: "తెలుగు" },
+  kn: { flag: "🇮🇳", name: "Kannada", native: "ಕನ್ನಡ" },
+  bn: { flag: "🇮🇳", name: "Bengali", native: "বাংলা" },
+  mr: { flag: "🇮🇳", name: "Marathi", native: "मराठी" }
+};
+
+let currentLang = localStorage.getItem('lifelink_lang') || 'en';
+if (!I18N[currentLang]) currentLang = 'en';
+
+function t(key) {
+  if (I18N[currentLang] && I18N[currentLang][key] !== undefined) return I18N[currentLang][key];
+  if (I18N.en[key] !== undefined) return I18N.en[key];
+  return key;
+}
+
+/* ============ STATE ============ */
+let map = null, userMarker = null, hospitalMarkers = [];
+let trackMap = null, ambulanceMarker = null, trackInterval = null;
+let userLocation = null;
+let hospitalData = [];
+let currentFilter = 'all';
+let userProfile = null;
+let notifications = [];
+let ambulanceInterval = null;
+let ws = null;
+let currentRole = localStorage.getItem('lifelink_role') || null;
+let currentUser = localStorage.getItem('lifelink_user') || null;
+let installPrompt = null;
+let voiceSettings = JSON.parse(localStorage.getItem('lifelink_voice') || '{"sound":true,"speech":true,"vibrate":true}');
+
+// ✅ Hardcoded Supabase defaults
+const SUPABASE_URL_DEFAULT = 'https://czzzjrdnkktrakwleozx.supabase.co';
+const SUPABASE_KEY_DEFAULT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6enpqcmRua2t0cmFrd2xlb3p4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4MzUxNDQsImV4cCI6MjEwNjQxMTE0NH0.L6E74a2-A0ExN4Dmbn-aBu03DD_7FfMkLchrhQ5b_-k';
+
+let backendConfig = JSON.parse(
+  localStorage.getItem('lifelink_backend') ||
+  JSON.stringify({ url: SUPABASE_URL_DEFAULT, key: SUPABASE_KEY_DEFAULT })
+);
+
+/* ============ SUPABASE CLIENT ============ */
+let supabaseClient = null;
+
+function initSupabase() {
+  const url = backendConfig.url || SUPABASE_URL_DEFAULT;
+  const key = backendConfig.key || SUPABASE_KEY_DEFAULT;
+  if (!url || !key) { console.log('ℹ️ Supabase not configured'); return null; }
+  if (typeof supabase === 'undefined') { console.warn('⚠️ Supabase SDK missing'); return null; }
+  try {
+    supabaseClient = supabase.createClient(url, key);
+    console.log('✅ Supabase connected:', url);
+    return supabaseClient;
+  } catch (e) {
+    console.error('❌ Supabase init failed:', e);
+    return null;
+  }
+}
+
+function dbToUI(row) {
+  if (!row) return null;
+  return {
+    id: row.id, name: row.name, blood: row.blood, age: row.age, gender: row.gender,
+    allergies: row.allergies, diseases: row.diseases, medicines: row.medicines,
+    organ: row.organ,
+    c1name: row.c1name, c1rel: row.c1rel, c1phone: row.c1phone,
+    c2name: row.c2name, c2rel: row.c2rel, c2phone: row.c2phone,
+    insProvider:  row.ins_provider,
+    insPolicy:    row.ins_policy,
+    insSum:       row.ins_sum,
+    insValid:     row.ins_valid,
+    insCashless:  row.ins_cashless,
+    insHelpline:  row.ins_helpline,
+    insNotes:     row.ins_notes,
+    registered:   row.created_at,
+  };
+}
+
+function uiToDB(data) {
+  return {
+    id: data.id, name: data.name, blood: data.blood,
+    age: data.age ? parseInt(data.age) : null,
+    gender: data.gender,
+    allergies: data.allergies, diseases: data.diseases, medicines: data.medicines,
+    organ: data.organ,
+    c1name: data.c1name, c1rel: data.c1rel, c1phone: data.c1phone,
+    c2name: data.c2name, c2rel: data.c2rel, c2phone: data.c2phone,
+    ins_provider: data.insProvider,
+    ins_policy:   data.insPolicy,
+    ins_sum:      data.insSum,
+    ins_valid:    data.insValid,
+    ins_cashless: data.insCashless,
+    ins_helpline: data.insHelpline,
+    ins_notes:    data.insNotes,
+  };
+}
+
+let donorData = null;
+let selectedRole = null;
+let mapInitialized = false;
+let currentTabIndex = 0;
+
+/* ============ MOCK WEBSOCKET ============ */
+class MockWebSocket {
+  constructor(onMessage) {
+    this.onMessage = onMessage;
+    this.timer = setInterval(() => {
+      if (hospitalData.length === 0) return;
+      const idx = Math.floor(Math.random() * hospitalData.length);
+      const h = hospitalData[idx];
+      h.beds = Math.max(0, h.beds + (Math.floor(Math.random() * 5) - 2));
+      h.icu = Math.max(0, h.icu + (Math.floor(Math.random() * 3) - 1));
+      h.status = getStatus(h.beds, h.icu);
+      if (this.onMessage) this.onMessage({ type: 'BED_UPDATE', hospital: h.name });
+      if (currentTabIndex === 2) renderHospitalList();
+      if (currentTabIndex === 6) renderAdminDashboard();
+    }, 8000);
+  }
+  close() { if (this.timer) clearInterval(this.timer); }
+}
+
+function handleWsMessage() { /* silent */ }
+
+/* ============ HOSPITAL DATA ============ */
+function generateMockHospitals(centerLat, centerLng) {
+  const hospitals = [
+    { name: "Apollo Hospital", type: "Multi-Specialty", lat: 0.008, lng: 0.010, beds: 45, icu: 8, trauma: true, blood: ["A+","B+","O+","AB+","O-"], phone: "+91 44 2829 3333", source: "Apollo Live API" },
+    { name: "Government General Hospital", type: "Government", lat: -0.012, lng: 0.008, beds: 120, icu: 15, trauma: true, blood: ["A+","A-","B+","B-","O+","O-","AB+","AB-"], phone: "+91 44 2530 5000", source: "TN Health Dept" },
+    { name: "Fortis Malar", type: "Private", lat: 0.015, lng: -0.012, beds: 18, icu: 4, trauma: false, blood: ["A+","O+","B+"], phone: "+91 44 4289 2222", source: "Fortis Live API" },
+    { name: "MIOT International", type: "Super-Specialty", lat: -0.018, lng: -0.015, beds: 60, icu: 12, trauma: true, blood: ["O+","O-","A+","B+","AB+"], phone: "+91 44 4200 2288", source: "MIOT Live" },
+    { name: "Kauvery Hospital", type: "Multi-Specialty", lat: 0.022, lng: 0.018, beds: 8, icu: 2, trauma: false, blood: ["O+","A+"], phone: "+91 44 4000 6000", source: "Kauvery Live" },
+    { name: "Sri Ramachandra Medical", type: "Teaching Hospital", lat: -0.025, lng: 0.020, beds: 85, icu: 20, trauma: true, blood: ["A+","A-","B+","B-","O+","O-","AB+"], phone: "+91 44 2476 8403", source: "Govt Data" },
+    { name: "Vijaya Hospital", type: "Multi-Specialty", lat: 0.030, lng: -0.005, beds: 0, icu: 0, trauma: true, blood: ["B+","O+"], phone: "+91 44 2476 8888", source: "Vijaya Live" },
+    { name: "Billroth Hospitals", type: "Private", lat: -0.008, lng: 0.028, beds: 32, icu: 6, trauma: false, blood: ["A+","O+","B+","AB+"], phone: "+91 44 4221 2222", source: "Billroth Live" },
+    { name: "Chettinad Health City", type: "Super-Specialty", lat: 0.035, lng: 0.025, beds: 95, icu: 18, trauma: true, blood: ["O+","O-","A+","B+","AB+","AB-"], phone: "+91 44 4742 7777", source: "Chettinad Live" },
+    { name: "Global Hospitals", type: "Multi-Specialty", lat: -0.020, lng: -0.025, beds: 25, icu: 5, trauma: true, blood: ["A+","B+","O+","O-"], phone: "+91 44 2277 1000", source: "Global Live" }
+  ];
+  return hospitals.map((h, i) => {
+    const lat = centerLat + h.lat;
+    const lng = centerLng + h.lng;
+    const distance = calculateDistance(centerLat, centerLng, lat, lng);
+    return { id: i, ...h, lat, lng, distance, eta: Math.round(distance * 2.5 + 3), status: getStatus(h.beds, h.icu) };
+  }).sort((a,b) => a.distance - b.distance);
+}
+
+function getStatus(beds, icu) {
+  if (beds >= 30 && icu >= 8) return 'good';
+  if (beds >= 10 && icu >= 3) return 'medium';
+  return 'low';
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+/* ============ TABS ============ */
+function switchTab(idx) {
+  const tabs = document.querySelectorAll('.tab');
+  const contents = document.querySelectorAll('.tab-content');
+  if (idx < 0 || idx >= tabs.length) return;
+  currentTabIndex = idx;
+  tabs.forEach((tab,i) => tab.classList.toggle('active', i===idx));
+  contents.forEach((c,i) => c.classList.toggle('active', i===idx));
+  if (idx === 2 && map) setTimeout(() => map.invalidateSize(), 200);
+  if (idx === 3) renderInsuranceTab();
+  if (idx === 5) renderDonors();
+  if (idx === 6) renderAdminDashboard();
+}
+
+/* ============ LANGUAGE ============ */
+function buildLangGrid() {
+  const grid = document.getElementById('langGrid');
+  grid.innerHTML = Object.keys(LANG_META).map(code => `
+    <div class="lang-option ${code === currentLang ? 'active' : ''}" onclick="setLang('${code}'); event.stopPropagation();">
+      <span class="flag">${LANG_META[code].flag}</span>
+      <div class="name">${LANG_META[code].name}</div>
+      <div class="native">${LANG_META[code].native}</div>
+    </div>
+  `).join('');
+}
+
+function openLangModal() {
+  buildLangGrid();
+  document.getElementById('langModal').classList.add('show');
+}
+
+function closeLangModal() { document.getElementById('langModal').classList.remove('show'); }
+
+function setLang(code) {
+  if (!I18N[code]) code = 'en';
+  currentLang = code;
+  localStorage.setItem('lifelink_lang', code);
+  closeLangModal();
+  applyLang();
+  if (currentTabIndex === 3) renderInsuranceTab();
+  if (currentTabIndex === 5) renderDonors();
+  if (currentTabIndex === 6) renderAdminDashboard();
+  if (hospitalData.length > 0) renderHospitalList();
+  showToast('🌐 ' + LANG_META[code].native, 'success');
+}
+
+/* ============ APPLY LANGUAGE ============ */
+function applyLang() {
+  const MAP = {
+    langModalTitle: 'chooseLang', langModalSub: 'selectLang',
+    tagline: 'tagline',
+    tabBtn0: 'tabRegister', tabBtn1: 'tabEmergency', tabBtn2: 'tabHospitals',
+    tabBtn3: 'tabInsurance', tabBtn4: 'tabScanner', tabBtn5: 'tabBlood',
+    tabBtn6: 'tabAdmin', tabBtn7: 'tabSettings',
+    regTitleEl: 'regTitle', lblFullName: 'fullName', lblBloodGroup: 'bloodGroup',
+    lblAge: 'age', lblGender: 'gender', lblAllergies: 'allergies',
+    lblConditions: 'conditions', lblMedicines: 'medicines', lblOrgan: 'organDonor',
+    insuranceTitleEl: 'insuranceTitle', insuranceHintEl: 'insuranceHint',
+    lblInsProvider: 'insuranceProvider', lblInsPolicy: 'policyNumber',
+    lblInsSum: 'sumInsured', lblInsValid: 'validTill', lblInsCashless: 'cashless',
+    lblInsHelpline: 'tpaHelpline', lblInsNotes: 'insNotes',
+    contactsTitleEl: 'contactsTitle',
+    lblC1Name: 'contact1Name', lblC1Rel: 'contact1Rel', lblC1Phone: 'contact1Phone',
+    lblC2Name: 'contact2Name', lblC2Rel: 'contact2Rel', lblC2Phone: 'contact2Phone',
+    generateQREl: 'generateQR',
+    qrReadyEl: 'qrReady', qrHintEl: 'qrHint',
+    lifelinkIDEl: 'lifelinkID', bloodGroupLabelEl: 'bloodGroupLabel',
+    allergiesLabelEl: 'allergiesLabel', conditionsLabelEl: 'conditionsLabel',
+    insuranceLabelEl: 'insuranceLabel',
+    emergency1LabelEl: 'emergency1Label', emergency2LabelEl: 'emergency2Label',
+    downloadQREl: 'downloadQR', demoScanEl: 'demoScan',
+    emergencyInfoEl: 'emergencyInfo', showRespondersEl: 'showResponders',
+    eBloodLabel: 'bloodGroupLabel', eAllergiesLabel: 'allergiesLabel',
+    eDiseasesLabel: 'conditionsLabel', eMedicinesLabel: 'medicinesLabel',
+    eInsuranceLabel: 'insuranceLabel',
+    emergencyContactsEl: 'emergencyContacts', findHospitalsEl: 'findHospitals',
+    liveNetworkEl: 'liveNetwork', liveDataEl: 'liveData', nearestEl: 'nearest',
+    filterAllEl: 'filterAll', filterICUEl: 'filterICU', filterBloodEl: 'filterBlood',
+    filterTraumaEl: 'filterTrauma', myLocationEl: 'myLocation',
+    legendReadyEl: 'legendReady', legendLimitedEl: 'legendLimited',
+    legendFullEl: 'legendFull', legendYouEl: 'legendYou',
+    loadingHospitalsEl: 'loadingHospitals',
+    insuranceTitleEl2: 'insuranceTitle', insuranceEmptyEl: 'insuranceEmpty',
+    insuranceEmptyHintEl: 'insuranceEmptyHint', insuranceHelpEl: 'insuranceHelp',
+    emergencyNumEl: 'emergencyNum', ayushmanEl: 'ayushman', irdaiEl: 'irdai', cmchisEl: 'cmchis',
+    scannerTitleEl: 'scannerTitle', scanPatientQREl: 'scanPatientQR',
+    scannerDescEl: 'scannerDesc', openCameraEl: 'openCamera', orTextEl: 'orText',
+    pasteURLEl: 'pasteURL', analyzePatientEl: 'analyzePatient',
+    bloodDonorTitleEl: 'bloodDonorTitle', searchBloodGroupEl: 'searchBloodGroup',
+    allBloodGroupsEl: 'allBloodGroups', searchCityEl: 'searchCity',
+    maxDistanceEl: 'maxDistance', registerAsDonorEl: 'registerAsDonor',
+    adminDashboardEl: 'adminDashboard', realTimeEl: 'realTime',
+    bedManagementEl: 'bedManagement',
+    settingsTitleEl: 'settingsTitle', voiceAlertsEl: 'voiceAlerts',
+    sosSoundEl: 'sosSound', sosSoundDescEl: 'sosSoundDesc',
+    sosSpeechEl: 'sosSpeech', sosSpeechDescEl: 'sosSpeechDesc',
+    vibrationEl: 'vibration', vibrationDescEl: 'vibrationDesc',
+    testVoiceEl: 'testVoice', backendConfigEl: 'backendConfig',
+    supabaseUrlEl: 'supabaseUrl', supabaseKeyEl: 'supabaseKey',
+    saveBackendEl: 'saveBackend', backendHintEl: 'backendHint',
+    installText: 'install', loginText: 'login', alertsText: 'alerts',
+    loginTitleEl: 'loginTitle', loginSubEl: 'loginSubtitle',
+    rolePatientName: 'patientRole', rolePatientDesc: 'patientDesc',
+    roleDoctorName: 'doctorRole', roleDoctorDesc: 'doctorDesc',
+    lblUsername: 'username', lblPassword: 'password',
+    loginBtnEl: 'loginBtn', skipLoginEl: 'skipLogin', demoHintEl: 'demoHint',
+    notifHeaderText: 'alerts'
+  };
+
+  for (const [id, key] of Object.entries(MAP)) {
+    const el = document.getElementById(id);
+    if (el) {
+      const val = t(key);
+      if (val !== key) el.textContent = val;
+    }
+  }
+
+  const optionMap = {
+    optSelect1: 'select', optSelect2: 'select',
+    optMale: 'male', optFemale: 'female', optOther: 'other',
+    optOrganPrefer: 'preferNot', optOrganYes: 'organYes', optOrganNo: 'no',
+    optInsProvider: 'selectProvider', optInsSum: 'select',
+    optCashless: 'select', optCashlessYes: 'yesOption',
+    optCashlessNo: 'no', optCashlessNotSure: 'notSure',
+    allBloodGroupsEl: 'allBloodGroups'
+  };
+  for (const [id, key] of Object.entries(optionMap)) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = t(key);
+  }
+
+  const placeholderMap = {
+    'name': 'fullName', 'age': 'age',
+    'allergies': 'allergies', 'diseases': 'conditions',
+    'medicines': 'medicines', 'insPolicy': 'policyNumber',
+    'insHelpline': 'tpaHelpline', 'insNotes': 'insNotes',
+    'c1name': 'contact1Name', 'c1rel': 'contact1Rel', 'c1phone': 'contact1Phone',
+    'c2name': 'contact2Name', 'c2rel': 'contact2Rel', 'c2phone': 'contact2Phone',
+    'loginUser': 'enterUsername', 'loginPass': 'enterPassword',
+    'scanInput': 'pasteURL', 'donorSearchCity': 'searchCity'
+  };
+  for (const [id, key] of Object.entries(placeholderMap)) {
+    const el = document.getElementById(id);
+    if (el) el.placeholder = t(key);
+  }
+
+  const langBtn = document.getElementById('langBtn');
+  if (langBtn) langBtn.innerHTML = '🌐 ' + LANG_META[currentLang].name;
+
+  const themeBtn = document.getElementById('themeBtn');
+  if (themeBtn) themeBtn.textContent = document.body.classList.contains('dark') ? t('light') : t('dark');
+
+  document.documentElement.lang = currentLang;
+}
+
+/* ============ QR GENERATION ============ */
+function generateQRCode(container, text) {
+  container.innerHTML = '';
+  let success = false;
+
+  try {
+    if (typeof QRCode !== 'undefined' && QRCode.CorrectLevel) {
+      new QRCode(container, {
+        text: text,
+        width: 200,
+        height: 200,
+        colorDark: '#1d3557',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      success = true;
+    }
+  } catch(e) { console.warn('qrcodejs failed:', e); }
+
+  if (!success) {
+    try {
+      if (typeof qrcode !== 'undefined') {
+        const qr = qrcode(0, 'H');
+        qr.addData(text);
+        qr.make();
+        container.innerHTML = qr.createImgTag(6, 12);
+        success = true;
+      }
+    } catch(e) { console.warn('qrcode-generator failed:', e); }
+  }
+
+  if (!success) {
+    container.innerHTML = `
+      <div style="padding:20px;text-align:center;max-width:240px;">
+        <p style="font-size:0.75rem;color:#666;margin-bottom:8px;">QR library unavailable</p>
+        <p style="font-size:0.65rem;word-break:break-all;color:#1d3557;">${text.substring(0, 100)}...</p>
+      </div>
+    `;
+  }
+  return success;
+}
+
+/* ============ FORM ============ */
+function handleSubmit(e) {
+  e.preventDefault();
+  const data = {
+    id: 'LL' + Date.now().toString(36).toUpperCase(),
+    name: val('name') || 'Unknown',
+    blood: val('blood') || '—',
+    age: val('age'),
+    gender: val('gender'),
+    allergies: val('allergies') || 'None known',
+    diseases: val('diseases') || 'None',
+    medicines: val('medicines') || 'None',
+    organ: val('organ') || 'Not specified',
+    c1name: val('c1name') || 'Contact 1',
+    c1rel: val('c1rel'),
+    c1phone: val('c1phone'),
+    c2name: val('c2name') || 'Contact 2',
+    c2rel: val('c2rel'),
+    c2phone: val('c2phone'),
+    insProvider: val('insProvider'),
+    insPolicy: val('insPolicy'),
+    insSum: val('insSum'),
+    insValid: val('insValid'),
+    insCashless: val('insCashless'),
+    insHelpline: val('insHelpline'),
+    insNotes: val('insNotes'),
+    registered: new Date().toISOString()
+  };
+  userProfile = data;
+
+  const payload = encodeURIComponent(JSON.stringify(data));
+  const qrUrl = location.origin + location.pathname + '#emergency=' + payload;
+
+  document.getElementById('result').style.display = 'block';
+  const qrDiv = document.getElementById('qrcode');
+  const ok = generateQRCode(qrDiv, qrUrl);
+
+  document.getElementById('previewName').textContent = data.name;
+  document.getElementById('previewBlood').textContent = data.blood;
+  document.getElementById('previewAge').textContent = (data.age ? data.age + ' yrs' : '') + (data.gender ? ' • ' + data.gender : '');
+  document.getElementById('previewAllergies').textContent = data.allergies;
+  document.getElementById('previewDiseases').textContent = data.diseases;
+  document.getElementById('previewC1').textContent = data.c1name + ' • ' + data.c1phone;
+  document.getElementById('previewC2').textContent = data.c2name + ' • ' + data.c2phone;
+  document.getElementById('idPhoto').textContent = data.name.charAt(0).toUpperCase();
+
+  if (data.insProvider) {
+    document.getElementById('previewInsRow').style.display = 'flex';
+    document.getElementById('previewInsurance').textContent = data.insProvider + (data.insPolicy ? ' • ' + data.insPolicy : '');
+  } else {
+    document.getElementById('previewInsRow').style.display = 'none';
+  }
+
+  document.getElementById('eBlood').textContent = data.blood;
+  document.getElementById('eAllergies').textContent = data.allergies;
+  document.getElementById('eDiseases').textContent = data.diseases;
+  document.getElementById('eMedicines').textContent = data.medicines;
+  document.getElementById('eC1Name').textContent = data.c1name + (data.c1rel ? ' ('+data.c1rel+')' : '');
+  document.getElementById('eC1Phone').textContent = data.c1phone || '—';
+  document.getElementById('eC2Name').textContent = data.c2name + (data.c2rel ? ' ('+data.c2rel+')' : '');
+  document.getElementById('eC2Phone').textContent = data.c2phone || '—';
+
+  const eInsBox = document.getElementById('eInsuranceBox');
+  const eIns = document.getElementById('eInsurance');
+  if (data.insProvider) {
+    eInsBox.style.display = 'block';
+    eIns.innerHTML = `<b>${data.insProvider}</b><br>Policy: ${data.insPolicy || '—'}<br>Sum: ₹${data.insSum || '—'} • ${data.insCashless || ''}`;
+  } else {
+    eIns.textContent = '—';
+  }
+
+  if (data.c1phone) document.getElementById('callBtn1').href = 'tel:' + data.c1phone.replace(/\s/g,'');
+  if (data.c2phone) document.getElementById('callBtn2').href = 'tel:' + data.c2phone.replace(/\s/g,'');
+
+  localStorage.setItem('lifelink_data', JSON.stringify(data));
+  showToast(ok ? t('qrGenerated') : t('qrFailed'), ok ? 'success' : 'warning');
+  addNotification('🏥', 'LifeLink ID Created', 'Your emergency QR is ready', 'success');
+  if (data.insProvider) addNotification('🛡️', 'Insurance Added', data.insProvider + ' • ' + (data.insPolicy || 'No policy #'), 'success');
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+
+  // ✅ Persist to Supabase (fire-and-forget)
+  if (supabaseClient) {
+    supabaseClient.from('patients').insert([uiToDB(data)]).then(({ error }) => {
+      if (error) {
+        console.warn('⚠️ Supabase insert failed:', error.message);
+        showToast('⚠️ Saved locally (DB: ' + error.message + ')', 'warning');
+      } else {
+        console.log('✅ Patient saved to Supabase:', data.id);
+        showToast('☁️ Synced to cloud', 'success');
+      }
+    });
+  }
+}
+
+function val(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function downloadQR() {
+  let canvas = document.querySelector('#qrcode canvas');
+  let dataUrl = null;
+
+  if (canvas) {
+    try { dataUrl = canvas.toDataURL('image/png'); } catch(e) {}
+  }
+
+  if (!dataUrl) {
+    const img = document.querySelector('#qrcode img');
+    if (img && img.src) dataUrl = img.src;
+  }
+
+  if (!dataUrl) { showToast('⚠️ No QR to download', 'warning'); return; }
+
+  try {
+    const link = document.createElement('a');
+    link.download = 'lifelink-qr.png';
+    link.href = dataUrl;
+    link.click();
+    showToast(t('qrDownloaded'), 'success');
+  } catch(e) { showToast('❌ Download failed', 'error'); }
+}
+
+function demoScan() {
+  if (!userProfile) { showToast('⚠️ Register patient first', 'warning'); return; }
+  switchTab(4);
+  setTimeout(() => {
+    document.getElementById('scannerView').style.display = 'none';
+    renderPatientDashboard(userProfile);
+  }, 300);
+}
+
+/* ============ CAMERA SCAN ============ */
+let html5QrScanner = null;
+
+function startCameraScan() {
+  const readerDiv = document.getElementById('reader');
+  readerDiv.style.display = 'block';
+  showToast(t('cameraOpening'), 'success');
+  setTimeout(() => initQRScanner(), 300);
+}
+
+function initQRScanner() {
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('Scanner library loading...', 'warning');
+    return;
+  }
+  if (html5QrScanner) {
+    try { html5QrScanner.stop(); } catch(e) {}
+  }
+  try {
+    html5QrScanner = new Html5Qrcode("reader");
+    html5QrScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (decodedText) => {
+        html5QrScanner.stop().then(() => {
+          document.getElementById('reader').style.display = 'none';
+          handleScannedData(decodedText);
+        }).catch(() => {
+          document.getElementById('reader').style.display = 'none';
+          handleScannedData(decodedText);
+        });
+      },
+      () => {}
+    ).catch(() => {
+      showToast(t('cameraDenied'), 'error');
+      document.getElementById('reader').style.display = 'none';
+    });
+  } catch(e) {
+    showToast(t('cameraDenied'), 'error');
+    document.getElementById('reader').style.display = 'none';
+  }
+}
+
+function processScanInput() {
+  const input = document.getElementById('scanInput').value.trim();
+  if (!input) { showToast(t('pasteWarning'), 'warning'); return; }
+  handleScannedData(input);
+}
+
+async function handleScannedData(text) {
+  try {
+    if (text.includes('#emergency=')) {
+      const payload = text.split('#emergency=')[1];
+      const data = JSON.parse(decodeURIComponent(payload));
+      userProfile = data;
+      localStorage.setItem('lifelink_data', JSON.stringify(data));
+      renderPatientDashboard(data);
+      showToast(t('patientLoaded'), 'success');
+      addNotification('📷', 'Patient Scanned', `Profile loaded for ${data.name}`, 'success');
+      return;
+    }
+    if (text.trim().startsWith('{')) {
+      const data = JSON.parse(text);
+      userProfile = data;
+      localStorage.setItem('lifelink_data', JSON.stringify(data));
+      renderPatientDashboard(data);
+      showToast(t('patientLoaded'), 'success');
+      return;
+    }
+    const idMatch = text.match(/LL[A-Z0-9]+/i);
+    if (idMatch && supabaseClient) {
+      const { data, error } = await supabaseClient
+        .from('patients').select('*')
+        .eq('id', idMatch[0].toUpperCase()).maybeSingle();
+      if (error || !data) {
+        showToast('❌ Patient not found in database', 'error');
+        return;
+      }
+      userProfile = dbToUI(data);
+      localStorage.setItem('lifelink_data', JSON.stringify(userProfile));
+      renderPatientDashboard(userProfile);
+      showToast(t('patientLoaded'), 'success');
+      addNotification('📷', 'Patient Fetched', `Loaded ${userProfile.name} from cloud`, 'success');
+      return;
+    }
+    showToast(t('invalidQR'), 'error');
+  } catch(e) {
+    console.error(e);
+    showToast(t('couldNotRead'), 'error');
+  }
+}
+
+/* ============ PATIENT DASHBOARD ============ */
+function renderPatientDashboard(p) {
+  document.getElementById('scannerView').style.display = 'none';
+  const dash = document.getElementById('patientDashboard');
+  dash.classList.add('active');
+
+  const isCriticalAllergy = p.allergies && !p.allergies.toLowerCase().includes('none');
+  const hasDiseases = p.diseases && !p.diseases.toLowerCase().includes('none');
+  const bestHospital = hospitalData.length > 0 ? findBestHospitalForPatient(p) : null;
+  const hasInsurance = !!(p.insProvider);
+
+  dash.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="live-badge"><span class="live-dot"></span>${t('livePatientData')}</span>
+          <span style="font-size:0.75rem;color:var(--text-light);">ID: ${p.id || 'N/A'}</span>
+        </div>
+        <button class="btn secondary" style="width:auto;padding:8px 16px;margin:0;font-size:0.8rem;" onclick="closeDashboard()">${t('close')}</button>
+      </div>
+
+      <div class="patient-header">
+        <div class="patient-info">
+          <div class="patient-avatar">${(p.name||'U').charAt(0).toUpperCase()}</div>
+          <div class="patient-details">
+            <div class="patient-name">${p.name || 'Unknown'}</div>
+            <div class="patient-meta">${p.age ? p.age + ' yrs' : ''} ${p.gender ? '• ' + p.gender : ''} ${p.organ ? '• 🫀 ' + p.organ : ''}</div>
+          </div>
+          <div class="blood-highlight">
+            <div class="bh-label">${t('bloodGroupLabel')}</div>
+            <div class="bh-value">${p.blood || '?'}</div>
+          </div>
+        </div>
+      </div>
+
+      ${isCriticalAllergy ? `
+        <div class="critical-alert">
+          <div class="critical-icon">⚠️</div>
+          <div class="critical-text">
+            <div class="critical-label">${t('criticalAllergyAlert')}</div>
+            <div class="critical-value">${p.allergies}</div>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="dashboard-grid">
+        <div class="dash-box ${isCriticalAllergy ? 'critical' : ''}">
+          <div class="db-label">⚠️ ${t('allergiesLabel')}</div>
+          <div class="db-value">${p.allergies || 'None known'}</div>
+        </div>
+        <div class="dash-box ${hasDiseases ? 'warning' : ''}">
+          <div class="db-label">🏥 ${t('conditionsLabel')}</div>
+          <div class="db-value">${p.diseases || 'None'}</div>
+        </div>
+        <div class="dash-box">
+          <div class="db-label">💉 ${t('medicinesLabel')}</div>
+          <div class="db-value">${p.medicines || 'None'}</div>
+        </div>
+        <div class="dash-box success">
+          <div class="db-label">🫀 ${t('organDonor')}</div>
+          <div class="db-value">${p.organ || 'Not specified'}</div>
+        </div>
+      </div>
+
+      ${hasInsurance ? `
+        <div class="insurance-card">
+          <div class="ins-header">
+            <div>
+              <div class="ins-provider">🏥 ${p.insProvider}</div>
+              <div class="ins-plan">Health Insurance Policy</div>
+            </div>
+            <div class="ins-badge">${p.insCashless === 'Yes' ? '💳 Cashless' : '📄 Reimbursement'}</div>
+          </div>
+          <div class="ins-grid">
+            <div class="ins-item">
+              <div class="ins-label">Policy Number</div>
+              <div class="ins-value">${p.insPolicy || '—'}</div>
+            </div>
+            <div class="ins-item">
+              <div class="ins-label">Sum Insured</div>
+              <div class="ins-value">₹${p.insSum || '—'}</div>
+            </div>
+            <div class="ins-item">
+              <div class="ins-label">Valid Till</div>
+              <div class="ins-value">${p.insValid || '—'}</div>
+            </div>
+            <div class="ins-item">
+              <div class="ins-label">Helpline</div>
+              <div class="ins-value">${p.insHelpline || '—'}</div>
+            </div>
+          </div>
+          ${p.insNotes ? `<div style="margin-top:12px;font-size:0.78rem;opacity:0.9;position:relative;z-index:1;">📝 ${p.insNotes}</div>` : ''}
+          ${p.insHelpline ? `<a href="tel:${p.insHelpline.replace(/\s/g,'')}" class="ins-verify">📞 ${t('verifyInsurance')}</a>` : ''}
+        </div>
+      ` : `
+        <div class="dash-box teal" style="margin-top:16px;">
+          <div class="db-label">🏥 ${t('insuranceLabel')}</div>
+          <div class="db-value">${t('noInsurance')}</div>
+        </div>
+      `}
+
+      <h2 style="margin-top:24px;">${t('emergencyContacts')}</h2>
+      <div class="call-grid">
+        <a href="${p.c1phone ? 'tel:'+p.c1phone.replace(/\s/g,'') : '#'}" class="call-btn">
+          <span class="cb-icon">📞</span>
+          <div class="cb-info">
+            <div class="cb-name">${p.c1name}${p.c1rel ? ' • ' + p.c1rel : ''}</div>
+            <div class="cb-phone">${p.c1phone || '—'}</div>
+          </div>
+        </a>
+        <a href="${p.c2phone ? 'tel:'+p.c2phone.replace(/\s/g,'') : '#'}" class="call-btn">
+          <span class="cb-icon">📞</span>
+          <div class="cb-info">
+            <div class="cb-name">${p.c2name}${p.c2rel ? ' • ' + p.c2rel : ''}</div>
+            <div class="cb-phone">${p.c2phone || '—'}</div>
+          </div>
+        </a>
+      </div>
+
+      ${bestHospital ? `
+        <h2 style="margin-top:28px;">${t('recommendedHospital')}</h2>
+        <div style="background:linear-gradient(135deg, rgba(6,214,160,0.1), rgba(6,214,160,0.03));padding:20px;border-radius:16px;border:2px solid var(--green);margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:14px;">
+            <div>
+              <div style="font-size:1.15rem;font-weight:900;color:var(--text);">${bestHospital.name}</div>
+              <div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">${bestHospital.type} • ${bestHospital.source}</div>
+            </div>
+            <div class="hc-distance" style="background:var(--green);">
+              ${bestHospital.distance.toFixed(1)} km
+              <small>~${bestHospital.eta} min</small>
+            </div>
+          </div>
+          <div class="hc-stats" style="margin-bottom:14px;">
+            <div class="stat"><div class="stat-label">${t('bedsFree')}</div><div class="stat-value ${bestHospital.beds >= 30 ? 'good' : bestHospital.beds >= 10 ? 'medium' : 'low'}">${bestHospital.beds}</div></div>
+            <div class="stat"><div class="stat-label">${t('icuFree')}</div><div class="stat-value ${bestHospital.icu >= 8 ? 'good' : bestHospital.icu >= 3 ? 'medium' : 'low'}">${bestHospital.icu}</div></div>
+            <div class="stat"><div class="stat-label">${t('bloodMatch')}</div><div class="stat-value ${bestHospital.blood.includes(p.blood) ? 'good' : 'low'}" style="font-size:0.85rem;">${bestHospital.blood.includes(p.blood) ? t('yes') : t('noMatch')}</div></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="tel:${bestHospital.phone.replace(/\s/g,'')}" class="hc-btn call" style="flex:1;min-width:140px;padding:12px;">${t('callHospital')}</a>
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${bestHospital.lat},${bestHospital.lng}" target="_blank" class="hc-btn route" style="flex:1;min-width:140px;padding:12px;">${t('navigate')}</a>
+          </div>
+        </div>
+      ` : `
+        <div style="margin-top:24px;padding:16px;background:var(--input-bg);border-radius:12px;text-align:center;color:var(--text-light);font-size:0.85rem;">
+          ${t('openHospitalsFirst')}
+        </div>
+      `}
+
+      <h2 style="margin-top:28px;">${t('bloodNetwork')} — ${p.blood || '?'}</h2>
+      <div style="background:var(--input-bg);padding:16px;border-radius:14px;margin-top:10px;">
+        <div style="font-size:0.75rem;color:var(--text-light);margin-bottom:12px;font-weight:700;text-transform:uppercase;">${t('nearbyBloodBanks')}</div>
+        <div>${renderBloodNetwork(p.blood)}</div>
+      </div>
+
+      <div class="ambulance-tracker">
+        <div class="amb-header">
+          <div class="amb-title">${t('ambulanceDispatched')}</div>
+          <div class="amb-eta-box">
+            <div class="amb-eta-label">ETA</div>
+            <div class="amb-eta-value" id="ambEta">— min</div>
+          </div>
+        </div>
+        <div style="font-size:0.8rem;opacity:0.95;margin-bottom:8px;">
+          ${t('vehicle')}: <b>TN-01-AB-1234</b> • ${t('driver')}: <b>Kumar S.</b> • ${t('contact')}: <b>+91 98xxx 12345</b>
+        </div>
+        <div class="amb-progress"><div class="amb-progress-bar" id="ambProgress" style="width:15%;"></div></div>
+        <div class="amb-info">
+          <span id="ambDistance">Distance: 4.2 km</span>
+          <span id="ambStatus">${t('enRoute')}</span>
+        </div>
+      </div>
+
+      <div id="trackMapWrap" style="margin-top:16px;">
+        <h2>🗺️ Live Ambulance Tracking</h2>
+        <div id="trackMap"></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:22px;">
+        <button class="btn green" onclick="notifyFamily('${p.c1phone || ''}','${p.c1name || ''}')">${t('alertFamily')}</button>
+        <button class="btn purple" onclick="dispatchAmbulance()">${t('dispatchAmbulance')}</button>
+        <button class="btn secondary" onclick="printPatientReport()">${t('printReport')}</button>
+      </div>
+    </div>
+  `;
+
+  dash.scrollIntoView({ behavior: 'smooth' });
+  startAmbulanceTracking();
+  setTimeout(initTrackMap, 500);
+}
+
+function renderBloodNetwork(patientBlood) {
+  const bloodBanks = [
+    { name: "Red Cross Blood Bank", units: 12, distance: 1.2, phone: "+91 44 2521 0099" },
+    { name: "Apollo Blood Bank", units: 8, distance: 2.5, phone: "+91 44 2829 3333" },
+    { name: "Govt Blood Bank", units: 24, distance: 3.8, phone: "+91 44 2530 5000" },
+    { name: "Rotary Blood Bank", units: 6, distance: 4.1, phone: "+91 44 2827 1010" }
+  ];
+  return bloodBanks.map(b => {
+    const match = patientBlood && b.units > 0;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--card-bg);border-radius:10px;border-left:4px solid ${match ? 'var(--green)' : 'var(--red)'};gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <div style="flex:1;min-width:160px;">
+          <div style="font-weight:800;font-size:0.9rem;">${b.name}</div>
+          <div style="font-size:0.75rem;color:var(--text-light);margin-top:2px;">📏 ${b.distance} ${t('kmAway')}</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:1.2rem;font-weight:900;color:${match ? 'var(--green)' : 'var(--red)'};">${b.units}</div>
+          <div style="font-size:0.65rem;color:var(--text-light);font-weight:700;">${t('units')}</div>
+        </div>
+        <a href="tel:${b.phone.replace(/\s/g,'')}" style="background:var(--green);color:white;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:0.75rem;font-weight:700;">${t('call')}</a>
+      </div>
+    `;
+  }).join('');
+}
+
+function findBestHospitalForPatient(p) {
+  if (hospitalData.length === 0) return null;
+  const scored = hospitalData.map(h => {
+    let score = 0;
+    if (p.blood && h.blood.includes(p.blood)) score += 50;
+    score += Math.max(0, 30 - h.distance * 3);
+    score += Math.min(20, h.beds / 2);
+    score += Math.min(20, h.icu * 1.5);
+    if (h.trauma) score += 10;
+    return { ...h, score };
+  });
+  scored.sort((a,b) => b.score - a.score);
+  return scored[0];
+}
+
+/* ============ LIVE AMBULANCE MAP ============ */
+function initTrackMap() {
+  const mapEl = document.getElementById('trackMap');
+  if (!mapEl) return;
+  if (trackMap) { try { trackMap.remove(); } catch(e){} trackMap = null; }
+  if (trackInterval) { clearInterval(trackInterval); trackInterval = null; }
+
+  const center = userLocation || { lat: 13.0827, lng: 80.2707 };
+  try {
+    trackMap = L.map('trackMap', { zoomControl: false }).setView([center.lat, center.lng], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' }).addTo(trackMap);
+
+    L.marker([center.lat, center.lng], {
+      icon: L.divIcon({ html: '<div class="user-pin"></div>', className: '', iconSize: [20, 20], iconAnchor: [10, 10] })
+    }).addTo(trackMap).bindPopup('📍 You');
+
+    const ambLat = center.lat + 0.02;
+    const ambLng = center.lng + 0.02;
+
+    L.polyline([[ambLat, ambLng], [center.lat, center.lng]], { color: '#f77f00', weight: 4, dashArray: '8, 8' }).addTo(trackMap);
+
+    ambulanceMarker = L.marker([ambLat, ambLng], {
+      icon: L.divIcon({ html: '<div class="ambulance-pin">🚑</div>', className: '', iconSize: [44, 44], iconAnchor: [22, 22] })
+    }).addTo(trackMap).bindPopup('🚑 Ambulance');
+
+    let prog = 0;
+    trackInterval = setInterval(() => {
+      if (!ambulanceMarker || !trackMap) { clearInterval(trackInterval); trackInterval = null; return; }
+      prog += 0.02;
+      if (prog >= 1) { clearInterval(trackInterval); trackInterval = null; prog = 1; }
+      const lat = ambLat + (center.lat - ambLat) * prog;
+      const lng = ambLng + (center.lng - ambLng) * prog;
+      ambulanceMarker.setLatLng([lat, lng]);
+    }, 800);
+  } catch(e) { console.error('Track map error', e); }
+}
+
+/* ============ AMBULANCE ============ */
+function startAmbulanceTracking() {
+  if (ambulanceInterval) clearInterval(ambulanceInterval);
+  let progress = 15, eta = 12, distance = 4.2;
+  ambulanceInterval = setInterval(() => {
+    progress = Math.min(100, progress + Math.random() * 8);
+    eta = Math.max(0, Math.round(eta - Math.random() * 0.8));
+    distance = Math.max(0, distance - Math.random() * 0.4);
+    const etaEl = document.getElementById('ambEta');
+    const progEl = document.getElementById('ambProgress');
+    const distEl = document.getElementById('ambDistance');
+    const statEl = document.getElementById('ambStatus');
+    if (etaEl) etaEl.textContent = eta + ' min';
+    if (progEl) progEl.style.width = progress + '%';
+    if (distEl) distEl.textContent = 'Distance: ' + distance.toFixed(1) + ' km';
+    if (statEl) {
+      if (progress > 90) statEl.textContent = t('almostArrived');
+      else if (progress > 60) statEl.textContent = t('twoMinAway');
+      else statEl.textContent = t('enRoute');
+    }
+    if (progress >= 100 && ambulanceInterval) {
+      clearInterval(ambulanceInterval);
+      ambulanceInterval = null;
+      if (statEl) statEl.textContent = t('arrivedPatient');
+    }
+  }, 2000);
+}
+
+function notifyFamily(phone, name) {
+  showToast(t('familyNotified') + ' ' + (name || ''), 'success');
+  addNotification('📲', 'Family Notified', `${name || 'Contact'} alerted`, 'success');
+}
+
+function dispatchAmbulance() {
+  showToast(t('ambulanceOnWay'), 'success');
+  addNotification('🚑', 'Ambulance Dispatched', 'Nearest ambulance en route', 'warning');
+  startAmbulanceTracking();
+}
+
+function printPatientReport() { window.print(); }
+
+function closeDashboard() {
+  document.getElementById('patientDashboard').classList.remove('active');
+  document.getElementById('scannerView').style.display = 'block';
+  if (ambulanceInterval) { clearInterval(ambulanceInterval); ambulanceInterval = null; }
+  if (trackInterval) { clearInterval(trackInterval); trackInterval = null; }
+  if (trackMap) { try { trackMap.remove(); } catch(e){} trackMap = null; }
+  ambulanceMarker = null;
+}
+
+/* ============ MAP ============ */
+async function loadHospitalsFromSupabase(lat, lng) {
+  if (!supabaseClient) return null;
+  try {
+    const { data, error } = await supabaseClient.from('hospitals').select('*');
+    if (error || !data || data.length === 0) return null;
+    return data.map(h => {
+      const distance = calculateDistance(lat, lng, h.lat, h.lng);
+      return {
+        ...h,
+        distance,
+        eta: Math.round(distance * 2.5 + 3),
+        status: getStatus(h.beds, h.icu),
+      };
+    }).sort((a, b) => a.distance - b.distance);
+  } catch (e) {
+    console.error('Failed to load hospitals:', e);
+    return null;
+  }
+}
+
+async function initMap(lat, lng) {
+  if (map) { try { map.remove(); } catch(e){} map = null; hospitalMarkers = []; }
+  try {
+    map = L.map('map', { zoomControl: true, attributionControl: false }).setView([lat, lng], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' }).addTo(map);
+
+    const userIcon = L.divIcon({ html: '<div class="user-pin"></div>', className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+    userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map).bindPopup('<b>📍 You are here</b>');
+
+    L.circle([lat, lng], { color: '#4a9eff', fillColor: '#4a9eff', fillOpacity: 0.1, radius: 2000, weight: 2, dashArray: '5, 10' }).addTo(map);
+
+    // ✅ Try Supabase first, fall back to mock
+    let dbHospitals = await loadHospitalsFromSupabase(lat, lng);
+    hospitalData = dbHospitals || generateMockHospitals(lat, lng);
+    console.log('✅ Loaded', hospitalData.length, 'hospitals', dbHospitals ? '(Supabase)' : '(mock)');
+    hospitalData.forEach(h => addHospitalMarker(h));
+    renderHospitalList();
+    updateETA();
+    if (!ws) ws = new MockWebSocket(handleWsMessage);
+    mapInitialized = true;
+  } catch(e) {
+    console.error('Map init error', e);
+    showToast('❌ Map failed to load', 'error');
+  }
+}
+
+function addHospitalMarker(h) {
+  const statusClass = h.status === 'good' ? 'green' : h.status === 'medium' ? 'orange' : 'red';
+  const icon = L.divIcon({
+    html: `<div class="hospital-pin ${statusClass}"></div>`, className: '',
+    iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+  });
+  const marker = L.marker([h.lat, h.lng], { icon }).addTo(map);
+  marker.bindPopup(`<div style="font-family:Inter,sans-serif;min-width:200px;"><b>${h.name}</b><br><span style="color:#666;font-size:0.75rem;">${h.type}</span><br><div style="display:flex;gap:8px;margin-top:8px;font-size:0.75rem;"><span>🛏️ <b>${h.beds}</b></span><span>🚑 <b>${h.icu}</b></span><span>📏 <b>${h.distance.toFixed(1)}km</b></span></div></div>`);
+  marker.hospitalId = h.id;
+  hospitalMarkers.push(marker);
+}
+
+function renderHospitalList() {
+  const list = document.getElementById('hospitalList');
+  const filtered = currentFilter === 'all' ? hospitalData : hospitalData.filter(h => {
+    if (currentFilter === 'icu') return h.icu >= 3;
+    if (currentFilter === 'blood') return userProfile && h.blood.includes(userProfile.blood);
+    if (currentFilter === 'trauma') return h.trauma;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="loading-state"><p>${t('noHospitals')}</p></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map((h, idx) => {
+    const statusClass = h.status === 'good' ? 'good' : h.status === 'medium' ? 'medium' : 'low';
+    const bedClass = h.beds >= 30 ? 'good' : h.beds >= 10 ? 'medium' : 'low';
+    const icuClass = h.icu >= 8 ? 'good' : h.icu >= 3 ? 'medium' : 'low';
+    const isNearest = idx === 0 && currentFilter === 'all';
+    const bloodMatch = userProfile && userProfile.blood && h.blood.includes(userProfile.blood);
+    const bloodTags = ['A+','B+','O+','AB+'].map(bg => `<span class="blood-tag ${h.blood.includes(bg) ? 'yes' : 'no'}">${bg}</span>`).join('');
+    return `
+      <div class="hospital-card ${isNearest ? 'nearest' : ''}" onclick="highlightHospital(${h.id})">
+        <div class="hc-header">
+          <div>
+            <div class="hc-name">${h.name}</div>
+            <div class="hc-type">${h.type} ${h.trauma ? '• 🚑 Trauma' : ''}</div>
+            <div style="font-size:0.65rem;color:var(--green);font-weight:700;margin-top:3px;">● ${h.source}</div>
+          </div>
+          <div class="hc-distance">${h.distance.toFixed(1)} km<small>~${h.eta} min</small></div>
+        </div>
+        <div class="hc-stats">
+          <div class="stat"><div class="stat-label">🛏️ ${t('bedsFree')}</div><div class="stat-value ${bedClass}">${h.beds}</div></div>
+          <div class="stat"><div class="stat-label">🚑 ICU</div><div class="stat-value ${icuClass}">${h.icu}</div></div>
+          <div class="stat"><div class="stat-label">Status</div><div class="stat-value ${statusClass}" style="font-size:0.7rem;text-transform:uppercase;">${h.status === 'good' ? t('legendReady') : h.status === 'medium' ? t('legendLimited') : t('legendFull')}</div></div>
+        </div>
+        <div class="hc-blood">
+          <span class="hc-blood-label">🩸</span>
+          ${bloodTags}
+          ${bloodMatch ? '<span class="blood-tag yes" style="margin-left:4px;">✓</span>' : ''}
+        </div>
+        <div class="hc-actions">
+          <a href="tel:${h.phone.replace(/\s/g,'')}" class="hc-btn call" onclick="event.stopPropagation()">${t('call')}</a>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}" target="_blank" class="hc-btn route" onclick="event.stopPropagation()">🧭</a>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterHospitals(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.map-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHospitalList();
+}
+
+function highlightHospital(id) {
+  const h = hospitalData.find(x => x.id === id);
+  if (!h || !map) return;
+  map.setView([h.lat, h.lng], 15);
+  const marker = hospitalMarkers.find(m => m.hospitalId === id);
+  if (marker) marker.openPopup();
+}
+
+function updateETA() {
+  if (hospitalData.length === 0) return;
+  const nearest = hospitalData[0];
+  const el = document.getElementById('etaLabel');
+  const tm = document.getElementById('etaTime');
+  if (el) el.textContent = nearest.name;
+  if (tm) tm.textContent = nearest.eta + ' min';
+}
+
+function locateUser() {
+  if (!navigator.geolocation) {
+    showToast('Geolocation not supported', 'error');
+    if (!mapInitialized) initMap(13.0827, 80.2707);
+    return;
+  }
+  showToast('📍 Locating...', 'success');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude } = pos.coords;
+      userLocation = { lat: latitude, lng: longitude };
+      initMap(latitude, longitude);
+      showToast('✅ Location found', 'success');
+    },
+    () => {
+      if (!mapInitialized) initMap(13.0827, 80.2707);
+      showToast('📍 Default location (Chennai)', 'warning');
+    },
+    { timeout: 8000, maximumAge: 60000 }
+  );
+}
+
+function loadHospitals() {
+  if (map) { setTimeout(() => map.invalidateSize(), 200); return; }
+  locateUser();
+}
+
+/* ============ INSURANCE TAB ============ */
+function renderInsuranceTab() {
+  const content = document.getElementById('insuranceContent');
+  if (!content) return;
+
+  if (!userProfile || !userProfile.insProvider) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:var(--text-light);">
+        <div style="font-size:3rem;margin-bottom:12px;">🏥</div>
+        <p>${t('insuranceEmpty')}</p>
+        <p style="font-size:0.8rem;margin-top:6px;">${t('insuranceEmptyHint')}</p>
+      </div>
+    `;
+    return;
+  }
+
+  const p = userProfile;
+  const isCashless = p.insCashless === 'Yes';
+  content.innerHTML = `
+    <div class="insurance-card">
+      <div class="ins-header">
+        <div>
+          <div class="ins-provider">🏥 ${p.insProvider}</div>
+          <div class="ins-plan">Health Insurance Policy • ${p.id || ''}</div>
+        </div>
+        <div class="ins-badge">${isCashless ? '💳 Cashless' : '📄 Reimbursement'}</div>
+      </div>
+      <div class="ins-grid">
+        <div class="ins-item">
+          <div class="ins-label">Policy Holder</div>
+          <div class="ins-value">${p.name || '—'}</div>
+        </div>
+        <div class="ins-item">
+          <div class="ins-label">Policy Number</div>
+          <div class="ins-value">${p.insPolicy || '—'}</div>
+        </div>
+        <div class="ins-item">
+          <div class="ins-label">Sum Insured</div>
+          <div class="ins-value">₹${p.insSum || '—'}</div>
+        </div>
+        <div class="ins-item">
+          <div class="ins-label">Valid Till</div>
+          <div class="ins-value">${p.insValid || '—'}</div>
+        </div>
+        <div class="ins-item">
+          <div class="ins-label">Cashless Facility</div>
+          <div class="ins-value">${p.insCashless || '—'}</div>
+        </div>
+        <div class="ins-item">
+          <div class="ins-label">Helpline</div>
+          <div class="ins-value">${p.insHelpline || '—'}</div>
+        </div>
+      </div>
+      ${p.insNotes ? `<div style="margin-top:14px;font-size:0.82rem;opacity:0.95;position:relative;z-index:1;">📝 <b>Notes:</b> ${p.insNotes}</div>` : ''}
+      ${p.insHelpline ? `<a href="tel:${p.insHelpline.replace(/\s/g,'')}" class="ins-verify">📞 ${t('verifyInsurance')}</a>` : ''}
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:20px;">
+      <button class="btn teal" onclick="switchTab(0); setTimeout(()=>document.getElementById('result')?.scrollIntoView({behavior:'smooth'}), 200);">✏️ Edit Insurance</button>
+      <button class="btn secondary" onclick="window.print()">🖨️ Print Insurance Card</button>
+    </div>
+  `;
+}
+
+/* ============ BLOOD DONORS ============ */
+function initDonors() {
+  if (donorData) return;
+  try {
+    const saved = localStorage.getItem('lifelink_donors');
+    if (saved) { donorData = JSON.parse(saved); return; }
+  } catch(e) {}
+  donorData = [
+    { id: 'D1', name: 'Arun Kumar', blood: 'O+', city: 'Chennai', phone: '+91 98765 11111', distance: 2.3, available: true },
+    { id: 'D2', name: 'Priya Sharma', blood: 'A+', city: 'Chennai', phone: '+91 98765 22222', distance: 3.1, available: true },
+    { id: 'D3', name: 'Ravi Verma', blood: 'B+', city: 'Chennai', phone: '+91 98765 33333', distance: 4.5, available: true },
+    { id: 'D4', name: 'Sneha Iyer', blood: 'AB+', city: 'Chennai', phone: '+91 98765 44444', distance: 5.2, available: false },
+    { id: 'D5', name: 'Karthik R', blood: 'O-', city: 'Chennai', phone: '+91 98765 55555', distance: 6.8, available: true },
+    { id: 'D6', name: 'Divya M', blood: 'A-', city: 'Chennai', phone: '+91 98765 66666', distance: 7.1, available: true },
+    { id: 'D7', name: 'Suresh P', blood: 'B-', city: 'Chennai', phone: '+91 98765 77777', distance: 8.4, available: true },
+    { id: 'D8', name: 'Lakshmi N', blood: 'AB-', city: 'Chennai', phone: '+91 98765 88888', distance: 9.2, available: false }
+  ];
+  localStorage.setItem('lifelink_donors', JSON.stringify(donorData));
+}
+
+function renderDonors() {
+  initDonors();
+  const bloodEl = document.getElementById('donorSearchBlood');
+  const cityEl = document.getElementById('donorSearchCity');
+  const distEl = document.getElementById('donorSearchDist');
+  if (!bloodEl) return;
+
+  const blood = bloodEl.value;
+  const city = cityEl.value.toLowerCase();
+  const maxDist = parseFloat(distEl.value) || 100;
+
+  const filtered = donorData.filter(d => {
+    if (blood && d.blood !== blood) return false;
+    if (city && !d.city.toLowerCase().includes(city)) return false;
+    if (d.distance > maxDist) return false;
+    return true;
+  });
+
+  const grid = document.getElementById('donorGrid');
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-light);">${t('noDonors')}</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(d => `
+    <div class="donor-card" style="${!d.available ? 'opacity:0.6;' : ''}">
+      <div class="donor-avatar">${d.name.charAt(0)}</div>
+      <div class="donor-info">
+        <div class="donor-name">${d.name} ${d.available ? '🟢' : '🔴'}</div>
+        <div class="donor-meta">📍 ${d.city} • ${d.distance.toFixed(1)} km</div>
+        <div class="donor-meta">📞 ${d.phone}</div>
+      </div>
+      <div class="donor-blood">${d.blood}</div>
+    </div>
+  `).join('');
+}
+
+function registerDonor() {
+  initDonors();
+  if (!userProfile) {
+    showToast('⚠️ Register patient first', 'warning');
+    return;
+  }
+  if (donorData.find(d => d.name === userProfile.name)) {
+    showToast(t('donorExists'), 'warning');
+    return;
+  }
+  donorData.push({
+    id: 'D' + Date.now(),
+    name: userProfile.name,
+    blood: userProfile.blood,
+    city: 'Chennai',
+    phone: userProfile.c1phone || '+91 00000 00000',
+    distance: 1.0,
+    available: true
+  });
+  localStorage.setItem('lifelink_donors', JSON.stringify(donorData));
+  showToast(t('donorRegistered'), 'success');
+  addNotification('🩸', 'Donor Registered', userProfile.name + ' joined network', 'success');
+  renderDonors();
+}
+
+/* ============ ADMIN DASHBOARD ============ */
+function renderAdminDashboard() {
+  const stats = document.getElementById('adminStats');
+  const bedList = document.getElementById('bedEditorList');
+  if (!stats || !bedList) return;
+
+  if (hospitalData.length === 0) {
+    stats.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-light);">Open Hospitals tab first</div>';
+    bedList.innerHTML = '';
+    return;
+  }
+  const totalBeds = hospitalData.reduce((s, h) => s + h.beds, 0);
+  const totalICU = hospitalData.reduce((s, h) => s + h.icu, 0);
+  initDonors();
+  const totalDonors = donorData ? donorData.length : 0;
+
+  stats.innerHTML = `
+    <div class="admin-stat">
+      <div class="as-icon">🏥</div>
+      <div class="as-value">${hospitalData.length}</div>
+      <div class="as-label">${t('totalHospitals')}</div>
+    </div>
+    <div class="admin-stat">
+      <div class="as-icon">🛏️</div>
+      <div class="as-value" style="color:var(--green);">${totalBeds}</div>
+      <div class="as-label">${t('totalBeds')}</div>
+    </div>
+    <div class="admin-stat">
+      <div class="as-icon">🚑</div>
+      <div class="as-value" style="color:var(--orange);">${totalICU}</div>
+      <div class="as-label">${t('totalICU')}</div>
+    </div>
+    <div class="admin-stat">
+      <div class="as-icon">🩸</div>
+      <div class="as-value" style="color:var(--red);">${totalDonors}</div>
+      <div class="as-label">${t('totalDonors')}</div>
+    </div>
+  `;
+
+  bedList.innerHTML = hospitalData.map(h => `
+    <div style="background:var(--input-bg);padding:16px;border-radius:12px;margin-bottom:12px;border-left:4px solid ${h.status === 'good' ? 'var(--green)' : h.status === 'medium' ? 'var(--orange)' : 'var(--red)'};">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <div>
+          <div style="font-weight:800;font-size:0.95rem;">${h.name}</div>
+          <div style="font-size:0.72rem;color:var(--text-light);">${h.type} • ${h.distance.toFixed(1)} km</div>
+        </div>
+        <div class="hc-distance" style="background:var(--blue);">${h.distance.toFixed(1)} km</div>
+      </div>
+      <div class="bed-editor">
+        <div>
+          <label style="font-size:0.7rem;">🛏️ Beds: <b>${h.beds}</b></label>
+          <input type="range" min="0" max="150" value="${h.beds}" oninput="updateBeds(${h.id}, this.value)" style="width:100%;margin-top:6px;">
+        </div>
+        <div>
+          <label style="font-size:0.7rem;">🚑 ICU: <b>${h.icu}</b></label>
+          <input type="range" min="0" max="30" value="${h.icu}" oninput="updateICU(${h.id}, this.value)" style="width:100%;margin-top:6px;">
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn small green" onclick="emergencyFull(${h.id})" style="width:100%;">🚨 Mark Full</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateBeds(id, value) {
+  const h = hospitalData.find(x => x.id === id);
+  if (h) {
+    h.beds = parseInt(value);
+    h.status = getStatus(h.beds, h.icu);
+    renderAdminDashboard();
+  }
+}
+
+function updateICU(id, value) {
+  const h = hospitalData.find(x => x.id === id);
+  if (h) {
+    h.icu = parseInt(value);
+    h.status = getStatus(h.beds, h.icu);
+    renderAdminDashboard();
+  }
+}
+
+function emergencyFull(id) {
+  const h = hospitalData.find(x => x.id === id);
+  if (h) {
+    h.beds = 0; h.icu = 0; h.status = 'low';
+    renderAdminDashboard();
+    showToast('🚨 ' + h.name + ' marked FULL', 'warning');
+  }
+}
+
+/* ============ VOICE ALERTS ============ */
+function toggleSwitch(key) {
+  voiceSettings[key] = !voiceSettings[key];
+  const el = document.getElementById('switch' + key.charAt(0).toUpperCase() + key.slice(1));
+  if (el) el.classList.toggle('on', voiceSettings[key]);
+  localStorage.setItem('lifelink_voice', JSON.stringify(voiceSettings));
+}
+
+function loadVoiceSettings() {
+  ['sound','speech','vibrate'].forEach(k => {
+    const el = document.getElementById('switch' + k.charAt(0).toUpperCase() + k.slice(1));
+    if (el) el.classList.toggle('on', voiceSettings[k]);
+  });
+}
+
+function playSOSSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 800;
+    gain.gain.value = 0.3;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    let up = true;
+    const interval = setInterval(() => {
+      osc.frequency.value = up ? 1200 : 700;
+      up = !up;
+    }, 300);
+    setTimeout(() => { clearInterval(interval); try { osc.stop(); ctx.close(); } catch(e){} }, 3000);
+  } catch(e) { console.log('Audio error', e); }
+}
+
+function speakText(text) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    const langMap = { en:'en-IN', ta:'ta-IN', ml:'ml-IN', hi:'hi-IN', te:'te-IN', kn:'kn-IN', bn:'bn-IN', mr:'mr-IN' };
+    utter.lang = langMap[currentLang] || 'en-IN';
+    utter.rate = 0.9;
+    utter.volume = 1;
+    window.speechSynthesis.speak(utter);
+  } catch(e) { console.log('Speech error', e); }
+}
+
+function testVoiceAlert() {
+  if (voiceSettings.sound) playSOSSound();
+  if (voiceSettings.speech) speakText(t('sosVoiceText'));
+  if (voiceSettings.vibrate && navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+  showToast('🔊 Voice test triggered', 'success');
+}
+
+/* ============ SOS ============ */
+function triggerSOS() {
+  addNotification('🚨', 'SOS Triggered', 'Emergency alert sent to contacts + 108', 'error');
+  showToast(t('sosTriggered'), 'error');
+  if (voiceSettings.sound) playSOSSound();
+  if (voiceSettings.speech) setTimeout(() => speakText(t('sosVoiceText')), 500);
+  if (voiceSettings.vibrate && navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 300, 150, 300]);
+}
+
+/* ============ LOGIN ============ */
+function openLogin() {
+  document.getElementById('loginScreen').classList.add('show');
+  if (currentRole) {
+    document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+    const el = document.getElementById('role' + currentRole.charAt(0).toUpperCase() + currentRole.slice(1));
+    if (el) el.classList.add('active');
+    selectedRole = currentRole;
+    document.getElementById('loginUser').value = currentUser || '';
+  }
+}
+
+function selectRole(role, el) {
+  selectedRole = role;
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  if (!selectedRole) { showToast('⚠️ Select role first', 'warning'); return; }
+  if (!user || !pass) { showToast('⚠️ Enter username & password', 'warning'); return; }
+
+  currentRole = selectedRole;
+  currentUser = user;
+  localStorage.setItem('lifelink_role', currentRole);
+  localStorage.setItem('lifelink_user', currentUser);
+
+  document.getElementById('loginScreen').classList.remove('show');
+  document.getElementById('roleBtn').innerHTML = (currentRole === 'doctor' ? '👨‍⚕️ ' : '🧑‍🦱 ') + currentUser;
+  showToast('✅ Logged in as ' + currentUser, 'success');
+  addNotification('🔐', 'Login Success', `${currentUser} (${currentRole})`, 'success');
+
+  if (currentRole === 'doctor') switchTab(4);
+}
+
+function skipLogin() {
+  document.getElementById('loginScreen').classList.remove('show');
+  showToast('👤 Demo mode', 'success');
+}
+
+/* ============ PWA INSTALL ============ */
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  document.getElementById('installBtn').classList.add('show');
+});
+
+function installPWA() {
+  if (!installPrompt) {
+    showToast('📲 Already installed or not supported', 'warning');
+    return;
+  }
+  installPrompt.prompt();
+  installPrompt.userChoice.then(choice => {
+    if (choice.outcome === 'accepted') {
+      showToast('✅ App installed!', 'success');
+      document.getElementById('installBtn').classList.remove('show');
+    }
+    installPrompt = null;
+  });
+}
+
+/* Service Worker */
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE = 'lifelink-v7-2';
+    self.addEventListener('install', e => {
+      e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./'])));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', e => {
+      e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+      self.clients.claim();
+    });
+    self.addEventListener('fetch', e => {
+      e.respondWith(
+        caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+          if (e.request.method === 'GET' && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone));
+          }
+          return res;
+        }).catch(() => caches.match('./')))
+      );
+    });
+  `;
+  try {
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(url).catch(() => {});
+  } catch(e) {}
+}
+
+/* ============ BACKEND CONFIG ============ */
+function saveBackend() {
+  backendConfig = {
+    url: document.getElementById('supabaseUrl').value.trim() || SUPABASE_URL_DEFAULT,
+    key: document.getElementById('supabaseKey').value.trim() || SUPABASE_KEY_DEFAULT,
+  };
+  localStorage.setItem('lifelink_backend', JSON.stringify(backendConfig));
+  initSupabase();
+  showToast(supabaseClient ? '✅ Supabase connected!' : t('backendSaved'),
+            supabaseClient ? 'success' : 'warning');
+}
+
+function loadBackend() {
+  document.getElementById('supabaseUrl').value = backendConfig.url || SUPABASE_URL_DEFAULT;
+  document.getElementById('supabaseKey').value = backendConfig.key || SUPABASE_KEY_DEFAULT;
+}
+
+/* ============ NOTIFICATIONS ============ */
+function addNotification(icon, title, desc, type = 'info') {
+  notifications.unshift({ icon, title, desc, type, time: new Date() });
+  const count = document.getElementById('notifCount');
+  if (count) count.textContent = notifications.length;
+  renderNotifications();
+}
+
+function renderNotifications() {
+  const list = document.getElementById('notifList');
+  if (!list) return;
+  if (notifications.length === 0) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-light);font-size:0.85rem;">No notifications</div>';
+    return;
+  }
+  list.innerHTML = notifications.map(n => `
+    <div class="notif-item">
+      <div class="notif-icon">${n.icon}</div>
+      <div class="notif-body">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-desc">${n.desc}</div>
+        <div class="notif-time">Just now</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleNotifications() {
+  document.getElementById('notifPanel').classList.toggle('show');
+}
+
+function closeNotif() {
+  document.getElementById('notifPanel').classList.remove('show');
+}
+
+/* ============ THEME ============ */
+function toggleTheme() {
+  document.body.classList.toggle('dark');
+  const isDark = document.body.classList.contains('dark');
+  document.getElementById('themeBtn').textContent = isDark ? t('light') : t('dark');
+  localStorage.setItem('lifelink_theme', isDark ? 'dark' : 'light');
+}
+
+/* ============ TOAST ============ */
+let toastTimer = null;
+function showToast(msg, type = 'info') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast ' + type;
+  toast.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+/* ============ INIT ============ */
+window.addEventListener('load', () => {
+  if (localStorage.getItem('lifelink_theme') === 'dark') {
+    document.body.classList.add('dark');
+  }
+  applyLang();
+  renderNotifications();
+  loadVoiceSettings();
+  loadBackend();
+  initDonors();
+  initSupabase();
+
+  const saved = localStorage.getItem('lifelink_data');
+  if (saved) {
+    try { userProfile = JSON.parse(saved); } catch(e) {}
+  }
+
+  if (currentRole && currentUser) {
+    document.getElementById('roleBtn').innerHTML = (currentRole === 'doctor' ? '👨‍⚕️ ' : '🧑‍🦱 ') + currentUser;
+  }
+
+  if (location.hash.includes('#emergency=')) {
+    try {
+      const payload = location.hash.split('#emergency=')[1];
+      const data = JSON.parse(decodeURIComponent(payload));
+      userProfile = data;
+      switchTab(4);
+      setTimeout(() => {
+        document.getElementById('scannerView').style.display = 'none';
+        renderPatientDashboard(data);
+      }, 500);
+    } catch(e) {}
+  }
+
+  const langModal = document.getElementById('langModal');
+  if (langModal) {
+    langModal.addEventListener('click', (e) => {
+      if (e.target.id === 'langModal') closeLangModal();
+    });
+  }
+  const loginScreen = document.getElementById('loginScreen');
+  if (loginScreen) {
+    loginScreen.addEventListener('click', (e) => {
+      if (e.target.id === 'loginScreen') loginScreen.classList.remove('show');
+    });
+  }
+});
+</script>
+</body>
+</html>
